@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { 
   ShieldAlert, DollarSign, ShoppingBag, Users, Utensils, Plus, Edit2, Trash2, 
-  CheckCircle2, XCircle, RefreshCw, Flame, Globe, MapPin, Search, Tag, Eye 
+  CheckCircle2, XCircle, RefreshCw, Flame, Globe, MapPin, Search, Tag, Eye,
+  Edit3, ShieldCheck, User
 } from 'lucide-react';
-import { MenuItem, Order, Driver, OrderStatus, FoodCategory } from '../types';
+import { MenuItem, Order, Driver, OrderStatus, FoodCategory, UserProfile } from '../types';
 import { Language, Currency, formatPrice, TRANSLATIONS } from '../utils/i18n';
 import { soundManager } from '../utils/audio';
 
@@ -21,6 +22,8 @@ interface AdminViewProps {
   onForceOrderStatus: (orderId: string, status: OrderStatus, message: string) => void;
   drivers: Driver[];
   onAssignDriver: (orderId: string, driver: Driver) => void;
+  currentUser?: UserProfile | null;
+  onOpenAuth?: () => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
@@ -37,8 +40,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onForceOrderStatus,
   drivers,
   onAssignDriver,
+  currentUser,
+  onOpenAuth,
 }) => {
   const t = TRANSLATIONS[lang].adminApp;
+
+  const adminName = currentUser?.name || 'সুপার এডমিন রানা ব্যানার্জী (Super Admin Rana)';
+  const adminEmail = currentUser?.email || 'admin.fastbite@foodexpress.in';
+  const adminPhone = currentUser?.phone || '+91 98300-00100';
+  const empId = currentUser?.employeeId || 'ADMIN-SYS-2026';
+  const adminPhoto = currentUser?.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300';
 
   const [activeTab, setActiveTab] = useState<'menu' | 'orders' | 'drivers' | 'settings'>('menu');
   const [menuSearch, setMenuSearch] = useState<string>('');
@@ -96,100 +107,115 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       
       {/* Admin Header Banner */}
-      <div className="bg-gradient-to-r from-zinc-900 via-rose-950 to-zinc-900 border border-rose-500/30 rounded-3xl p-6 text-white shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-rose-600/30 border border-rose-500/50 flex items-center justify-center text-rose-400 text-2xl shadow-lg">
-            <ShieldAlert className="w-8 h-8 text-rose-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="bg-rose-500/20 text-rose-300 text-xs font-mono font-bold px-2 py-0.5 rounded border border-rose-500/30">
-                ADMIN SYSTEM CONTROL
+      <div className="bg-gradient-to-r from-zinc-900 via-purple-950 to-zinc-900 border border-purple-500/30 rounded-2xl sm:rounded-3xl p-4 sm:p-6 text-white shadow-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <img
+            src={adminPhoto}
+            alt={adminName}
+            className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-white shadow-lg ring-2 ring-purple-400/30 shrink-0"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <span className="bg-purple-500/20 text-purple-300 text-[10px] sm:text-xs font-mono font-bold px-2 py-0.5 rounded-lg border border-purple-500/30 flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-purple-400" /> {empId}
               </span>
-              <span className="bg-emerald-500/20 text-emerald-300 text-[11px] font-bold px-2 py-0.5 rounded border border-emerald-500/30">
-                ● Live Server
+              <span className="bg-emerald-500/20 text-emerald-300 text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded border border-emerald-500/30">
+                ● ফুল অ্যাক্সেস
               </span>
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight mt-1">{t.title}</h1>
-            <p className="text-xs text-zinc-300">{t.subtitle}</p>
+            <h1 className="text-lg sm:text-2xl font-extrabold tracking-tight mt-1 truncate">{adminName}</h1>
+            <p className="text-[11px] sm:text-xs text-zinc-300 flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+              <span>ইমেইল: {adminEmail}</span>
+              <span className="hidden sm:inline">•</span>
+              <span>ফোন: {adminPhone}</span>
+            </p>
           </div>
         </div>
 
-        {/* Quick Language & Currency Switcher inside Admin */}
-        <div className="flex items-center gap-3 bg-black/40 p-2 rounded-2xl border border-white/10">
+        {/* Quick Language & Currency Switcher + Edit Profile */}
+        <div className="flex items-center gap-2 sm:gap-3 bg-black/40 p-2 rounded-2xl border border-white/10 flex-wrap justify-between sm:justify-start">
+          <button
+            onClick={() => {
+              soundManager.playChime('click');
+              if (onOpenAuth) onOpenAuth();
+            }}
+            className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-400/40 text-purple-200 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
+          >
+            <Edit3 className="w-3.5 h-3.5 text-purple-400" />
+            <span>প্রোফাইল এডিট</span>
+          </button>
+
           <div className="flex items-center gap-1.5 text-xs">
-            <Globe className="w-4 h-4 text-orange-400" />
+            <Globe className="w-3.5 h-3.5 text-orange-400 shrink-0" />
             <select
               value={lang}
               onChange={(e) => onSelectLang(e.target.value as Language)}
-              className="bg-zinc-800 text-white rounded-lg px-2.5 py-1.5 border border-zinc-700 text-xs font-bold cursor-pointer"
+              className="bg-zinc-800 text-white rounded-lg px-2 py-1 border border-zinc-700 text-xs font-bold cursor-pointer"
             >
-              <option value="bn">বাংলা (Bengali)</option>
+              <option value="bn">বাংলা</option>
               <option value="en">English</option>
             </select>
           </div>
 
-          <div className="h-6 w-px bg-zinc-700" />
-
           <select
             value={currency}
             onChange={(e) => onSelectCurrency(e.target.value as Currency)}
-            className="bg-zinc-800 text-white rounded-lg px-2.5 py-1.5 border border-zinc-700 text-xs font-bold cursor-pointer"
+            className="bg-zinc-800 text-white rounded-lg px-2 py-1 border border-zinc-700 text-xs font-bold cursor-pointer"
           >
-            <option value="BDT">৳ BDT (টাকা)</option>
-            <option value="INR">₹ INR (রুপি)</option>
+            <option value="BDT">৳ BDT</option>
+            <option value="INR">₹ INR</option>
           </select>
         </div>
       </div>
 
       {/* Overview Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-            <DollarSign className="w-6 h-6" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center shrink-0">
+            <DollarSign className="w-4 h-4 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <div className="text-xs text-zinc-400">{t.totalRevenue}</div>
-            <div className="text-xl font-extrabold text-white mt-0.5">
+          <div className="min-w-0">
+            <div className="text-[10px] sm:text-xs text-zinc-400 truncate">{t.totalRevenue}</div>
+            <div className="text-sm sm:text-xl font-extrabold text-white mt-0.5 truncate font-mono">
               {formatPrice(totalRevenue || 42.50, currency)}
             </div>
           </div>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center">
-            <ShoppingBag className="w-6 h-6" />
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-orange-500/10 text-orange-400 flex items-center justify-center shrink-0">
+            <ShoppingBag className="w-4 h-4 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <div className="text-xs text-zinc-400">{t.activeDeliveries}</div>
-            <div className="text-xl font-extrabold text-white mt-0.5">
+          <div className="min-w-0">
+            <div className="text-[10px] sm:text-xs text-zinc-400 truncate">{t.activeDeliveries}</div>
+            <div className="text-sm sm:text-xl font-extrabold text-white mt-0.5 truncate">
               {activeOrder ? '1 Live' : '0 Pending'}
             </div>
           </div>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-            <Users className="w-6 h-6" />
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+            <Users className="w-4 h-4 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <div className="text-xs text-zinc-400">{t.totalPartners}</div>
-            <div className="text-xl font-extrabold text-white mt-0.5">
-              {drivers.length} Riders Active
+          <div className="min-w-0">
+            <div className="text-[10px] sm:text-xs text-zinc-400 truncate">{t.totalPartners}</div>
+            <div className="text-sm sm:text-xl font-extrabold text-white mt-0.5 truncate">
+              {drivers.length} Riders
             </div>
           </div>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-            <Utensils className="w-6 h-6" />
+        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-3 sm:p-4 flex items-center gap-2.5 sm:gap-4">
+          <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0">
+            <Utensils className="w-4 h-4 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <div className="text-xs text-zinc-400">{t.totalMenuItems}</div>
-            <div className="text-xl font-extrabold text-white mt-0.5">
+          <div className="min-w-0">
+            <div className="text-[10px] sm:text-xs text-zinc-400 truncate">{t.totalMenuItems}</div>
+            <div className="text-sm sm:text-xl font-extrabold text-white mt-0.5 truncate">
               {menuItems.length} Foods
             </div>
           </div>
@@ -197,52 +223,52 @@ export const AdminView: React.FC<AdminViewProps> = ({
       </div>
 
       {/* Tab Controls */}
-      <div className="flex border-b border-zinc-800 overflow-x-auto gap-2">
+      <div className="flex border-b border-zinc-800 overflow-x-auto gap-1 sm:gap-2 no-scrollbar scrollbar-none pb-0.5">
         <button
           onClick={() => setActiveTab('menu')}
-          className={`px-4 py-3 font-bold text-xs border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
+          className={`px-3 py-2.5 sm:px-4 sm:py-3 font-bold text-xs border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 sm:gap-2 ${
             activeTab === 'menu'
               ? 'border-orange-500 text-orange-400 bg-orange-500/10 rounded-t-xl'
               : 'border-transparent text-zinc-400 hover:text-white'
           }`}
         >
-          <Utensils className="w-4 h-4" />
+          <Utensils className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>{t.tabMenu}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('orders')}
-          className={`px-4 py-3 font-bold text-xs border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
+          className={`px-3 py-2.5 sm:px-4 sm:py-3 font-bold text-xs border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 sm:gap-2 ${
             activeTab === 'orders'
               ? 'border-orange-500 text-orange-400 bg-orange-500/10 rounded-t-xl'
               : 'border-transparent text-zinc-400 hover:text-white'
           }`}
         >
-          <ShoppingBag className="w-4 h-4" />
+          <ShoppingBag className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>{t.tabOrders}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('drivers')}
-          className={`px-4 py-3 font-bold text-xs border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
+          className={`px-3 py-2.5 sm:px-4 sm:py-3 font-bold text-xs border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 sm:gap-2 ${
             activeTab === 'drivers'
               ? 'border-orange-500 text-orange-400 bg-orange-500/10 rounded-t-xl'
               : 'border-transparent text-zinc-400 hover:text-white'
           }`}
         >
-          <Users className="w-4 h-4" />
+          <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>{t.tabPartners}</span>
         </button>
 
         <button
           onClick={() => setActiveTab('settings')}
-          className={`px-4 py-3 font-bold text-xs border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
+          className={`px-3 py-2.5 sm:px-4 sm:py-3 font-bold text-xs border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 sm:gap-2 ${
             activeTab === 'settings'
               ? 'border-orange-500 text-orange-400 bg-orange-500/10 rounded-t-xl'
               : 'border-transparent text-zinc-400 hover:text-white'
           }`}
         >
-          <Globe className="w-4 h-4" />
+          <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           <span>{t.tabSettings}</span>
         </button>
       </div>
@@ -250,12 +276,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {/* Tab 1: Menu Items & Price Manager */}
       {activeTab === 'menu' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-900 p-4 rounded-2xl border border-zinc-800">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-zinc-900 p-3.5 sm:p-4 rounded-2xl border border-zinc-800">
             <div className="relative w-full sm:w-80">
               <Search className="w-4 h-4 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="Search food item..."
+                placeholder="খাবার খুঁজুন (Search food)..."
                 value={menuSearch}
                 onChange={(e) => setMenuSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-orange-500"
@@ -275,20 +301,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 });
                 setIsAddModalOpen(true);
               }}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-colors"
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg transition-colors active:scale-95"
             >
               <Plus className="w-4 h-4" />
               <span>{t.addNewItem}</span>
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {filteredMenuItems.map((item) => {
               const isOut = !!outOfStockIds[item.id];
               return (
                 <div
                   key={item.id}
-                  className={`bg-zinc-900 border rounded-2xl p-4 flex flex-col justify-between space-y-3 transition-all ${
+                  className={`bg-zinc-900 border rounded-2xl p-3.5 sm:p-4 flex flex-col justify-between space-y-3 transition-all ${
                     isOut ? 'border-red-900/50 opacity-60' : 'border-zinc-800 hover:border-zinc-700'
                   }`}
                 >
@@ -296,16 +322,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <img
                       src={item.image}
                       alt={item.name}
-                      className="w-20 h-20 rounded-xl object-cover shrink-0 border border-zinc-800"
+                      className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl object-cover shrink-0 border border-zinc-800"
                     />
                     <div className="space-y-1 flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
-                        <span className="text-xs font-mono text-orange-400 font-extrabold uppercase">
+                        <span className="text-[10px] font-mono text-orange-400 font-extrabold uppercase truncate">
                           {item.category}
                         </span>
                         <button
                           onClick={() => toggleStock(item.id)}
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
                             isOut
                               ? 'bg-red-500/20 text-red-400 border border-red-500/30'
                               : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
@@ -314,13 +340,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
                           {isOut ? t.outOfStock : t.inStock}
                         </button>
                       </div>
-                      <h3 className="font-bold text-sm text-white truncate">{item.name}</h3>
+                      <h3 className="font-bold text-xs sm:text-sm text-white truncate">{item.name}</h3>
                       <p className="text-[11px] text-zinc-400 line-clamp-2">{item.description}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-zinc-800/80 text-xs">
-                    <div className="font-extrabold text-orange-400 text-base">
+                    <div className="font-extrabold text-orange-400 text-sm sm:text-base font-mono">
                       {formatPrice(item.price, currency)}
                     </div>
 
@@ -367,20 +393,20 @@ export const AdminView: React.FC<AdminViewProps> = ({
           ) : (
             <div className="space-y-4">
               {activeOrder && (
-                <div className="bg-zinc-900 border border-orange-500/40 rounded-3xl p-5 space-y-4 shadow-xl">
+                <div className="bg-zinc-900 border border-orange-500/40 rounded-3xl p-4 sm:p-5 space-y-4 shadow-xl">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-zinc-800 pb-3">
                     <div>
                       <span className="bg-orange-500/20 text-orange-400 text-xs font-mono font-bold px-2 py-0.5 rounded border border-orange-500/30">
                         LIVE ACTIVE ORDER #{activeOrder.orderNumber}
                       </span>
-                      <h3 className="text-lg font-extrabold text-white mt-1">
+                      <h3 className="text-base sm:text-lg font-extrabold text-white mt-1">
                         Customer: {activeOrder.customerName} ({activeOrder.customerPhone})
                       </h3>
                       <p className="text-xs text-zinc-400">{activeOrder.deliveryAddress}</p>
                     </div>
 
-                    <div className="text-right">
-                      <div className="text-xl font-extrabold text-orange-400">
+                    <div className="sm:text-right">
+                      <div className="text-lg sm:text-xl font-extrabold text-orange-400 font-mono">
                         {formatPrice(activeOrder.totalAmount, currency)}
                       </div>
                       <div className="text-xs text-zinc-400 font-mono">
@@ -394,12 +420,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <span className="text-xs font-bold text-zinc-400 uppercase">
                       Admin Force Status Control:
                     </span>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {(['confirmed', 'preparing', 'ready_for_pickup', 'on_the_way', 'delivered', 'cancelled'] as OrderStatus[]).map((st) => (
                         <button
                           key={st}
                           onClick={() => onForceOrderStatus(activeOrder.id, st, `Admin force updated status to ${st}`)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                          className={`px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold transition-all ${
                             activeOrder.status === st
                               ? 'bg-orange-600 text-white shadow-md'
                               : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-300'
@@ -416,18 +442,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
                     <span className="text-xs font-bold text-zinc-400 uppercase">
                       Assigned Courier: <span className="text-white">{activeOrder.driver.name}</span>
                     </span>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {drivers.map((drv) => (
                         <button
                           key={drv.id}
                           onClick={() => onAssignDriver(activeOrder.id, drv)}
-                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors flex items-center gap-2 ${
+                          className={`px-2.5 py-1.5 rounded-xl text-[11px] sm:text-xs font-bold border transition-colors flex items-center gap-1.5 ${
                             activeOrder.driver.id === drv.id
                               ? 'bg-amber-600 text-white border-amber-500'
                               : 'bg-zinc-950 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
                           }`}
                         >
-                          <img src={drv.photo} className="w-4 h-4 rounded-full" />
+                          <img src={drv.photo} className="w-4 h-4 rounded-full object-cover" />
                           <span>{drv.name} ({drv.vehiclePlate})</span>
                         </button>
                       ))}
@@ -442,13 +468,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
       {/* Tab 3: Delivery Partners */}
       {activeTab === 'drivers' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
           {drivers.map((drv) => (
-            <div key={drv.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+            <div key={drv.id} className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 sm:p-5 space-y-3.5">
               <div className="flex items-center gap-3">
-                <img src={drv.photo} alt={drv.name} className="w-14 h-14 rounded-2xl object-cover border border-zinc-700" />
+                <img src={drv.photo} alt={drv.name} className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border border-zinc-700" />
                 <div>
-                  <h3 className="font-extrabold text-white text-base">{drv.name}</h3>
+                  <h3 className="font-extrabold text-white text-sm sm:text-base">{drv.name}</h3>
                   <p className="text-xs text-zinc-400 font-mono">{drv.vehiclePlate}</p>
                   <div className="text-[11px] text-amber-400 font-bold mt-0.5">
                     ★ {drv.rating} • {drv.tripsCompleted} Trips Done
@@ -477,16 +503,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
       {/* Tab 4: System & Region Settings */}
       {activeTab === 'settings' && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 text-white space-y-6 max-w-2xl">
-          <h2 className="text-lg font-bold flex items-center gap-2">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 text-white space-y-6 max-w-2xl">
+          <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
             <Globe className="w-5 h-5 text-orange-400" />
             Regional & Currency Configuration
           </h2>
 
           <div className="space-y-4 text-xs">
-            <div className="space-y-1">
-              <label className="text-zinc-400 font-bold">App Language (ভাষা):</label>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-zinc-400 font-bold block">App Language (ভাষা):</label>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <button
                   onClick={() => onSelectLang('bn')}
                   className={`p-3 rounded-xl font-bold border transition-all text-center ${
@@ -510,9 +536,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
               </div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-zinc-400 font-bold">Default Currency (মুদ্রা):</label>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-zinc-400 font-bold block">Default Currency (মুদ্রা):</label>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <button
                   onClick={() => onSelectCurrency('BDT')}
                   className={`p-3 rounded-xl font-bold border transition-all text-center ${
@@ -541,13 +567,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
       {/* Add / Edit Menu Item Modal */}
       {isAddModalOpen && editingItem && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 max-w-lg w-full text-white space-y-4 shadow-2xl">
-            <h2 className="text-lg font-extrabold flex items-center justify-between border-b border-zinc-800 pb-3">
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 max-w-lg w-full text-white space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h2 className="text-base sm:text-lg font-extrabold flex items-center justify-between border-b border-zinc-800 pb-3">
               <span>{editingItem.id ? t.editItem : t.addNewItem}</span>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-zinc-400 hover:text-white p-1"
+                className="text-zinc-400 hover:text-white p-1 rounded-lg hover:bg-zinc-800 transition-colors"
               >
                 ✕
               </button>
@@ -577,9 +603,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-400 font-bold mb-1">{t.price} (USD Base ~$3.80 = ৳450)</label>
+                  <label className="block text-zinc-400 font-bold mb-1">{t.price}</label>
                   <input
                     type="number"
                     step="0.10"

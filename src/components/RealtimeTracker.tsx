@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Clock, Phone, MessageSquare, MapPin, 
-  AlertTriangle, Play, Pause, Sparkles, RefreshCw, ChevronRight 
+  AlertTriangle, Play, Pause, Sparkles, RefreshCw, ChevronRight,
+  ShoppingBag, User, FileText, Store, ChevronDown, ChevronUp, CheckCircle2, Receipt, Tag
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { MapView } from './MapView';
@@ -36,6 +37,7 @@ export const RealtimeTracker: React.FC<RealtimeTrackerProps> = ({
   currency,
 }) => {
   const t = TRANSLATIONS[lang].tracker;
+  const [showOrderDetails, setShowOrderDetails] = useState(true);
 
   const STAGES: { id: OrderStatus; label: string; icon: string }[] = [
     { id: 'placed', label: t.placed, icon: '📝' },
@@ -244,6 +246,174 @@ export const RealtimeTracker: React.FC<RealtimeTrackerProps> = ({
               </button>
 
             </div>
+          </div>
+
+          {/* Customer Detailed Order Items & Delivery Summary Card */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-5 shadow-xl text-white space-y-4">
+            
+            <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center justify-center">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-white flex items-center gap-2">
+                    📋 অর্ডার আইটেম ও ডেলিভারি বিবরণ (Order Details)
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">অর্ডার নম্বর: #{order.orderNumber} • {order.items.length} টি আইটেম</p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowOrderDetails((prev) => !prev)}
+                className="p-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors flex items-center gap-1 text-xs font-semibold"
+              >
+                <span>{showOrderDetails ? 'সংক্ষেপ করুন' : 'বিস্তারিত দেখুন'}</span>
+                {showOrderDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              </button>
+            </div>
+
+            {/* Expanded Detailed Breakdown */}
+            {showOrderDetails && (
+              <div className="space-y-4 pt-1">
+                
+                {/* Current Detailed Status Explanation */}
+                <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-zinc-900 border border-orange-500/30 p-3.5 rounded-2xl flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold text-sm shrink-0 mt-0.5">
+                    {order.status === 'delivered' ? '✓' : '🛵'}
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-extrabold text-orange-400 uppercase tracking-wide">
+                      বর্তমান স্ট্যাটাস অবস্থা:
+                    </span>
+                    <p className="text-xs font-bold text-white">
+                      {order.status === 'placed' && '📝 অর্ডার সিস্টেমে গ্রহণ করা হয়েছে। রেস্টুরেন্ট পর্যালোচনার অপেক্ষায়।'}
+                      {order.status === 'confirmed' && '✅ রেস্টুরেন্ট অর্ডার কনফার্ম করেছে। কিচেনে তথ্য পাঠানো হয়েছে।'}
+                      {order.status === 'preparing' && '🍳 কিচেনে অভিজ্ঞ শেফ আপনার ফ্রেশ খাবার রান্না করছেন।'}
+                      {order.status === 'ready_for_pickup' && '📦 খাবার থার্মাল কন্টেইনারে সিল করা প্যাক সম্পন্ন, রাইডারের অপেক্ষায়।'}
+                      {order.status === 'on_the_way' && '🛵 ডেলিভারি রাইডার খাবার গ্রহণ করে আপনার ঠিকানায় আসছেন।'}
+                      {order.status === 'arriving' && '🔔 রাইডার আপনার বাড়ির একদম কাছে পৌঁছে গেছেন!'}
+                      {order.status === 'delivered' && '🎉 অর্ডার সফলভাবে আপনার নিকট ডেলিভার করা সম্পন্ন হয়েছে!'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Grid: Customer Info & Restaurant Info */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Delivery Destination */}
+                  <div className="bg-zinc-950/80 border border-zinc-800 p-3.5 rounded-2xl space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-zinc-400 font-bold uppercase text-[10px] tracking-wider">
+                      <User className="w-3.5 h-3.5 text-orange-400" />
+                      <span>গ্রাহক ও ঠিকানার তথ্য</span>
+                    </div>
+                    <p className="font-extrabold text-white text-sm">{order.customerName}</p>
+                    <p className="text-zinc-300 flex items-center gap-1 font-mono">
+                      <Phone className="w-3 h-3 text-zinc-400" /> {order.customerPhone}
+                    </p>
+                    <p className="text-zinc-300 flex items-start gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-orange-400 shrink-0 mt-0.5" />
+                      <span>{order.deliveryAddress}</span>
+                    </p>
+                    {order.deliveryNotes && (
+                      <p className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl mt-1">
+                        💬 <strong>নির্দেশনা:</strong> {order.deliveryNotes}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Restaurant Info */}
+                  <div className="bg-zinc-950/80 border border-zinc-800 p-3.5 rounded-2xl space-y-1.5">
+                    <div className="flex items-center gap-1.5 text-zinc-400 font-bold uppercase text-[10px] tracking-wider">
+                      <Store className="w-3.5 h-3.5 text-orange-400" />
+                      <span>রেস্টুরেন্ট তথ্য</span>
+                    </div>
+                    <p className="font-extrabold text-white text-sm">{order.restaurant.name}</p>
+                    <p className="text-zinc-300 flex items-center gap-1 font-mono">
+                      <Phone className="w-3 h-3 text-zinc-400" /> {order.restaurant.phone}
+                    </p>
+                    <p className="text-zinc-300 flex items-start gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0 mt-0.5" />
+                      <span>{order.restaurant.address}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Itemized Order Items Table */}
+                <div className="bg-zinc-950/80 border border-zinc-800 rounded-2xl overflow-hidden text-xs">
+                  <div className="bg-zinc-800/60 px-4 py-2.5 font-bold text-zinc-300 flex justify-between border-b border-zinc-800">
+                    <span className="flex items-center gap-1.5">
+                      <ShoppingBag className="w-4 h-4 text-orange-400" /> খাবার আইটেম তালিকা
+                    </span>
+                    <span>মূল্য</span>
+                  </div>
+
+                  <div className="divide-y divide-zinc-800/60">
+                    {order.items.map((item, idx) => (
+                      <div key={`${item.cartItemId}_${idx}`} className="p-3 flex items-start justify-between gap-3 hover:bg-zinc-900/50 transition-colors">
+                        <div className="flex items-start gap-2.5">
+                          <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-lg font-mono font-extrabold text-xs">
+                            {item.quantity}x
+                          </span>
+                          <div>
+                            <p className="font-bold text-white text-xs">{item.menuItem.name}</p>
+                            {item.selectedOptions && item.selectedOptions.length > 0 && (
+                              <p className="text-[11px] text-zinc-400 mt-0.5">
+                                {item.selectedOptions.map((o) => o.choiceName).join(', ')}
+                              </p>
+                            )}
+                            {item.specialInstructions && (
+                              <p className="text-[10px] text-amber-400/90 italic">
+                                "{item.specialInstructions}"
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <span className="font-extrabold text-white font-mono shrink-0">
+                          {formatPrice(item.itemTotalPrice, currency)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Payment Breakdown */}
+                  <div className="bg-zinc-900/90 p-3.5 border-t border-zinc-800 space-y-1.5 text-xs font-medium">
+                    <div className="flex justify-between text-zinc-400">
+                      <span>সাবটোটাল (Subtotal):</span>
+                      <span className="font-mono text-zinc-200">{formatPrice(order.subtotal, currency)}</span>
+                    </div>
+                    <div className="flex justify-between text-zinc-400">
+                      <span>ডেলিভারি চার্জ (Delivery Fee):</span>
+                      <span className="font-mono text-emerald-400 font-bold">
+                        {order.deliveryFee === 0 ? 'ফ্রি (FREE)' : formatPrice(order.deliveryFee, currency)}
+                      </span>
+                    </div>
+                    {order.discount > 0 && (
+                      <div className="flex justify-between text-emerald-400">
+                        <span>ডিসকাউন্ট (Discount):</span>
+                        <span className="font-mono">-{formatPrice(order.discount, currency)}</span>
+                      </div>
+                    )}
+                    {order.tip > 0 && (
+                      <div className="flex justify-between text-amber-300">
+                        <span>রাইডার টিপস (Tip):</span>
+                        <span className="font-mono">{formatPrice(order.tip, currency)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm font-extrabold text-white pt-2 border-t border-zinc-800">
+                      <span className="flex items-center gap-1">
+                        <Tag className="w-4 h-4 text-orange-400" /> সর্বমোট মূল্য (Total):
+                      </span>
+                      <span className="font-mono text-orange-400 text-base">
+                        {formatPrice(order.totalAmount, currency)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
           </div>
 
         </div>

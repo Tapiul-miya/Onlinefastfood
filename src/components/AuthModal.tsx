@@ -3,11 +3,13 @@ import {
   X, Smartphone, Mail, Lock, User, CheckCircle2, ArrowRight, 
   ShieldCheck, Sparkles, LogOut, Utensils, Bike, Settings,
   KeyRound, FileText, BadgeAlert, Building2, MapPin, Navigation,
-  Edit3, Save, RefreshCw, Compass, UserCheck, Home, Check
+  Edit3, Save, RefreshCw, Compass, UserCheck, Home, Check, Globe
 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
-import { REGIONAL_PRESET_LOCATIONS } from '../data/mockData';
+
 import { soundManager } from '../utils/audio';
+import { fetchCurrentGpsLocation } from '../utils/geolocation';
+import { Language, Currency } from '../utils/i18n';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -16,6 +18,10 @@ interface AuthModalProps {
   onLogin: (user: UserProfile) => void;
   onLogout: () => void;
   targetRole?: UserRole;
+  lang?: Language;
+  onSelectLang?: (lang: Language) => void;
+  currency?: Currency;
+  onSelectCurrency?: (currency: Currency) => void;
 }
 
 const AVATAR_PRESETS = [
@@ -32,6 +38,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onLogin,
   onLogout,
   targetRole = 'customer',
+  lang = 'bn',
+  onSelectLang,
+  currency = 'BDT',
+  onSelectCurrency,
 }) => {
   // Active App Role Tab inside Auth Modal (Customer, Kitchen, Driver, Admin)
   const [selectedAppRole, setSelectedAppRole] = useState<UserRole>(targetRole);
@@ -65,6 +75,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [editEmail, setEditEmail] = useState(currentUser?.email || '');
   const [editAddress, setEditAddress] = useState(currentUser?.address || 'সল্টলেক সেক্টর ৫, কলকাতা');
   const [editAvatar, setEditAvatar] = useState(currentUser?.avatar || '');
+  const [editVehicleNumber, setEditVehicleNumber] = useState(currentUser?.vehicleNumber || '');
+  const [editEmployeeId, setEditEmployeeId] = useState(currentUser?.employeeId || '');
+  const [editRestaurantId, setEditRestaurantId] = useState(currentUser?.restaurantId || '');
+  const [editAssignedHub, setEditAssignedHub] = useState(currentUser?.assignedHub || '');
 
   // GPS Location Status
   const [isLocating, setIsLocating] = useState(false);
@@ -99,6 +113,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setEditEmail(currentUser.email || '');
       setEditAddress(currentUser.address || 'সল্টলেক সেক্টর ৫, কলকাতা');
       setEditAvatar(currentUser.avatar || AVATAR_PRESETS[0]);
+      setEditVehicleNumber(currentUser.vehicleNumber || '');
+      setEditEmployeeId(currentUser.employeeId || '');
+      setEditRestaurantId(currentUser.restaurantId || '');
+      setEditAssignedHub(currentUser.assignedHub || '');
     }
   }, [currentUser, isOpen]);
 
@@ -111,107 +129,39 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setLocationSuccessMsg('');
     soundManager.playChime('click');
 
-    const applyDetectedAddress = (locString: string, isRealGps: boolean) => {
-      setIsLocating(false);
+    const result = await fetchCurrentGpsLocation();
+    setIsLocating(false);
+
+    if (result.success && result.address) {
       if (isForProfileUpdate) {
-        setEditAddress(locString);
+        setEditAddress(result.address);
         if (currentUser) {
           const updatedUser: UserProfile = {
             ...currentUser,
-            address: locString,
+            address: result.address,
           };
           onLogin(updatedUser);
         }
       } else {
-        setCustAddress(locString);
+        setCustAddress(result.address);
       }
-      if (isRealGps) {
-        setLocationSuccessMsg('লাইভ জিপিএস লোকেশন পাওয়া গেছে!');
-        soundManager.playChime('order_placed');
-      } else {
-        setErrorMsg('ব্রাউজারে জিপিএস পারমিশন পাওয়া যায়নি। অনুগ্রহ করে নিচে আপনার সঠিক ঠিকানাটি লিখে দিন।');
-      }
-    };
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          let realAddress = '';
-
-          // 1. Try BigDataCloud Reverse Geocoding Client API (Fast, Free, CORS-friendly)
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
-            const res = await fetch(
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=bn`,
-              { signal: controller.signal }
-            );
-            clearTimeout(timeoutId);
-            if (res.ok) {
-              const data = await res.json();
-              const place = data.locality || data.city || data.localityInfo?.informative?.[0]?.name;
-              const region = data.principalSubdivision || data.countryName;
-              if (place) {
-                realAddress = `${place}, ${region}`;
-              }
-            }
-          } catch (e) {
-            console.warn('BigDataCloud geocode failed:', e);
-          }
-
-          // 2. Try Nominatim as secondary reverse geocoding
-          if (!realAddress) {
-            try {
-              const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 3000);
-              const res = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16`,
-                { signal: controller.signal }
-              );
-              clearTimeout(timeoutId);
-              if (res.ok) {
-                const data = await res.json();
-                if (data && data.display_name) {
-                  const parts = data.display_name.split(',');
-                  realAddress = parts.slice(0, 3).join(',').trim();
-                }
-              }
-            } catch (e) {
-              console.warn('Nominatim geocode failed:', e);
-            }
-          }
-
-          const finalLocString = realAddress
-            ? `${realAddress} (GPS: ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E)`
-            : `লাইভ লোকেশন (GPS: ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E)`;
-
-          applyDetectedAddress(finalLocString, true);
-        },
-        (error) => {
-          console.warn('Geolocation permission or error:', error);
-          setIsLocating(false);
-          const currentTyped = isForProfileUpdate ? editAddress : custAddress;
-          if (!currentTyped || currentTyped.trim().length === 0) {
-            if (isForProfileUpdate) {
-              setEditAddress('বাসা / ফ্ল্যাট নম্বর, এলাকা, শহরের নাম লিখুন');
-            } else {
-              setCustAddress('বাসা / ফ্ল্যাট নম্বর, এলাকা, শহরের নাম লিখুন');
-            }
-          }
-          setErrorMsg('ব্রাউজারে জিপিএস পারমিশন ব্লক বা বন্ধ রয়েছে। অনুগ্রহ করে নিচে আপনার নিজের বাসা বা অফিসের সঠিক ঠিকানাটি টাইপ করুন।');
-          soundManager.playChime('click');
-        },
-        { timeout: 5000, enableHighAccuracy: true, maximumAge: 10000 }
-      );
+      setLocationSuccessMsg('লাইভ জিপিএস লোকেশন পাওয়া গেছে!');
+      soundManager.playChime('order_placed');
     } else {
-      setIsLocating(false);
-      setErrorMsg('আপনার ডিভাইসে জিপিএস সাপোর্ট করছে না। অনুগ্রহ করে নিচে ম্যানুয়ালি নিজের ঠিকানা লিখে দিন।');
+      const currentTyped = isForProfileUpdate ? editAddress : custAddress;
+      if (!currentTyped || currentTyped.trim().length === 0) {
+        if (isForProfileUpdate) {
+          setEditAddress('বাসা / ফ্ল্যাট নম্বর, এলাকা, শহরের নাম লিখুন');
+        } else {
+          setCustAddress('বাসা / ফ্ল্যাট নম্বর, এলাকা, শহরের নাম লিখুন');
+        }
+      }
+      setErrorMsg(result.errorMessage || 'জিপিএস সিগন্যাল পাওয়া যায়নি। নিচে বক্সে আপনার সঠিক ঠিকানাটি ম্যানুয়ালি লিখুন।');
+      soundManager.playChime('click');
     }
   };
 
-  // Profile Save Changes Handler for Logged In Customer/User
+  // Profile Save Changes Handler for Logged In User Profile
   const handleSaveProfileUpdate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editName.trim()) {
@@ -232,6 +182,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           email: editEmail.trim(),
           address: editAddress.trim(),
           avatar: editAvatar || currentUser.avatar,
+          vehicleNumber: editVehicleNumber.trim() || currentUser.vehicleNumber,
+          employeeId: editEmployeeId.trim() || currentUser.employeeId,
+          restaurantId: editRestaurantId.trim() || currentUser.restaurantId,
+          assignedHub: editAssignedHub.trim() || currentUser.assignedHub,
         };
         onLogin(updatedUser);
         setProfileSuccessMsg('আপনার প্রোফাইল তথ্য সফলভাবে আপডেট হয়েছে!');
@@ -772,28 +726,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       />
                     </div>
 
-                    {/* 1-Click Quick Location Selector */}
-                    <div className="mt-2 space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px] text-zinc-400 font-medium">
-                        <span>📍 ১-ক্লিকে লোকেশন টেস্ট & চয়েস করুন:</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {REGIONAL_PRESET_LOCATIONS.map((preset, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              setEditAddress(preset.address);
-                              setLocationSuccessMsg(`ঠিকানা সেট করা হয়েছে: ${preset.name}`);
-                              soundManager.playChime('click');
-                            }}
-                            className="px-2.5 py-1 bg-zinc-900 hover:bg-orange-600/30 hover:border-orange-500/60 border border-zinc-800 text-[11px] text-zinc-300 hover:text-white rounded-lg transition-all cursor-pointer active:scale-95"
-                          >
-                            {preset.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+
 
                     {locationSuccessMsg && (
                       <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1 mt-1.5 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
@@ -802,6 +735,94 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       </div>
                     )}
                   </div>
+
+                  {/* Role Specific Extra Inputs */}
+                  {currentUser?.role === 'driver' && (
+                    <div className="space-y-3 pt-2 border-t border-zinc-800">
+                      <div className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                        <Bike className="w-3.5 h-3.5" />
+                        <span>ডেলিভারি রাইডার স্পেসিফিক তথ্য</span>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">বাইক/যানবাহন প্লেট নম্বর (Vehicle Plate)</label>
+                        <input
+                          type="text"
+                          value={editVehicleNumber}
+                          onChange={(e) => setEditVehicleNumber(e.target.value)}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                          placeholder="TVS Apache 160 (WB-02-AK-4819)"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">রাইডার এমপ্লয়ি আইডি (Driver ID)</label>
+                        <input
+                          type="text"
+                          value={editEmployeeId}
+                          onChange={(e) => setEditEmployeeId(e.target.value)}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                          placeholder="DRV-KOL-9948"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">অ্যাসাইনড হাব (Assigned Hub)</label>
+                        <input
+                          type="text"
+                          value={editAssignedHub}
+                          onChange={(e) => setEditAssignedHub(e.target.value)}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                          placeholder="পার্ক স্ট্রিট সেন্ট্রাল হাব"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {currentUser?.role === 'kitchen' && (
+                    <div className="space-y-3 pt-2 border-t border-zinc-800">
+                      <div className="text-[11px] font-bold text-rose-400 flex items-center gap-1">
+                        <Utensils className="w-3.5 h-3.5" />
+                        <span>কিচেন ও রেস্তোরাঁ তথ্য</span>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">রেস্তোরাঁ / কিচেন ব্র্যান্ডের নাম</label>
+                        <input
+                          type="text"
+                          value={editRestaurantId}
+                          onChange={(e) => setEditRestaurantId(e.target.value)}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                          placeholder="ফাস্টবাইট এক্সপ্রেস কলকাতা (Park Street HQ)"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">শেফ স্টাফ আইডি (Employee ID)</label>
+                        <input
+                          type="text"
+                          value={editEmployeeId}
+                          onChange={(e) => setEditEmployeeId(e.target.value)}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
+                          placeholder="KITCHEN-KOL-01"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {currentUser?.role === 'admin' && (
+                    <div className="space-y-3 pt-2 border-t border-zinc-800">
+                      <div className="text-[11px] font-bold text-purple-400 flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <span>এডমিন কন্ট্রোল তথ্য</span>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">এডমিন সার্ভিস আইডি (Security ID)</label>
+                        <input
+                          type="text"
+                          value={editEmployeeId}
+                          onChange={(e) => setEditEmployeeId(e.target.value)}
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
+                          placeholder="ADMIN-SYS-2026"
+                        />
+                      </div>
+                    </div>
+                  )}
 
                   {/* 5. Avatar Picker */}
                   <div>
@@ -846,6 +867,90 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                 </form>
               )}
+
+              {/* Language & Currency Preferences Section */}
+              <div className="bg-zinc-950 p-3.5 rounded-2xl border border-zinc-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-300">
+                    <Globe className="w-4 h-4 text-orange-400" />
+                    <span>অ্যাপের ভাষা ও কারেন্সি (Language & Currency)</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {/* Language Toggle */}
+                  <div className="bg-zinc-900 p-2.5 rounded-xl border border-zinc-800 flex flex-col gap-1.5">
+                    <span className="text-[10px] text-zinc-400 font-medium">ভাষা (Language)</span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onSelectLang) onSelectLang('bn');
+                          soundManager.playChime('click');
+                        }}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-extrabold transition-all ${
+                          lang === 'bn'
+                            ? 'bg-orange-600 text-white shadow-sm border border-orange-500'
+                            : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                        }`}
+                      >
+                        বাংলা
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onSelectLang) onSelectLang('en');
+                          soundManager.playChime('click');
+                        }}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-extrabold transition-all ${
+                          lang === 'en'
+                            ? 'bg-orange-600 text-white shadow-sm border border-orange-500'
+                            : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                        }`}
+                      >
+                        English
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Currency Toggle */}
+                  <div className="bg-zinc-900 p-2.5 rounded-xl border border-zinc-800 flex flex-col gap-1.5">
+                    <span className="text-[10px] text-zinc-400 font-medium">মুদ্রা (Currency)</span>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onSelectCurrency) onSelectCurrency('BDT');
+                          soundManager.playChime('click');
+                        }}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-extrabold transition-all ${
+                          currency === 'BDT'
+                            ? 'bg-amber-600 text-white shadow-sm border border-amber-500'
+                            : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                        }`}
+                      >
+                        ৳ BDT
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onSelectCurrency) onSelectCurrency('INR');
+                          soundManager.playChime('click');
+                        }}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-extrabold transition-all ${
+                          currency === 'INR'
+                            ? 'bg-amber-600 text-white shadow-sm border border-amber-500'
+                            : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
+                        }`}
+                      >
+                        ₹ INR
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* Logout Button */}
               <button
@@ -1120,28 +1225,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           />
                         </div>
 
-                        {/* 1-Click Quick Location Selector */}
-                        <div className="mt-2 space-y-1.5">
-                          <div className="flex items-center justify-between text-[11px] text-zinc-400 font-medium">
-                            <span>📍 ১-ক্লিকে লোকেশন টেস্ট & চয়েস করুন:</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {REGIONAL_PRESET_LOCATIONS.map((preset, idx) => (
-                              <button
-                                key={idx}
-                                type="button"
-                                onClick={() => {
-                                  setCustAddress(preset.address);
-                                  setLocationSuccessMsg(`ঠিকানা সেট করা হয়েছে: ${preset.name}`);
-                                  soundManager.playChime('click');
-                                }}
-                                className="px-2.5 py-1 bg-zinc-900 hover:bg-orange-600/30 hover:border-orange-500/60 border border-zinc-800 text-[11px] text-zinc-300 hover:text-white rounded-lg transition-all cursor-pointer active:scale-95"
-                              >
-                                {preset.name}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
+
 
                         {locationSuccessMsg && (
                           <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1 mt-1.5 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
@@ -1404,6 +1488,49 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </svg>
                 <span>গুগল অ্যাকাউন্ট দিয়ে ১-ক্লিকে লগইন</span>
               </button>
+
+              {/* Language & Currency Preferences Section */}
+              <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800 space-y-2 text-xs mt-3">
+                <div className="flex items-center gap-1.5 font-bold text-zinc-400 text-[11px]">
+                  <Globe className="w-3.5 h-3.5 text-orange-400" />
+                  <span>ভাষা ও কারেন্সি সিলেক্ট করুন</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => { if (onSelectLang) onSelectLang('bn'); soundManager.playChime('click'); }}
+                      className={`flex-1 py-1 rounded-lg text-[11px] font-bold ${lang === 'bn' ? 'bg-orange-600 text-white' : 'text-zinc-400'}`}
+                    >
+                      বাংলা
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { if (onSelectLang) onSelectLang('en'); soundManager.playChime('click'); }}
+                      className={`flex-1 py-1 rounded-lg text-[11px] font-bold ${lang === 'en' ? 'bg-orange-600 text-white' : 'text-zinc-400'}`}
+                    >
+                      EN
+                    </button>
+                  </div>
+
+                  <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 gap-1">
+                    <button
+                      type="button"
+                      onClick={() => { if (onSelectCurrency) onSelectCurrency('BDT'); soundManager.playChime('click'); }}
+                      className={`flex-1 py-1 rounded-lg text-[11px] font-bold ${currency === 'BDT' ? 'bg-amber-600 text-white' : 'text-zinc-400'}`}
+                    >
+                      ৳ BDT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { if (onSelectCurrency) onSelectCurrency('INR'); soundManager.playChime('click'); }}
+                      className={`flex-1 py-1 rounded-lg text-[11px] font-bold ${currency === 'INR' ? 'bg-amber-600 text-white' : 'text-zinc-400'}`}
+                    >
+                      ₹ INR
+                    </button>
+                  </div>
+                </div>
+              </div>
             </>
           )}
 

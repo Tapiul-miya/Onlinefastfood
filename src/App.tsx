@@ -23,59 +23,224 @@ import { AdminView } from './components/AdminView';
 import { ChatModal } from './components/ChatModal';
 import { OrderHistoryModal } from './components/OrderHistoryModal';
 import { AuthModal } from './components/AuthModal';
+import { OrderSuccessModal } from './components/OrderSuccessModal';
 
-import { Flame, History, Sparkles } from 'lucide-react';
+import { 
+  Flame, History, Sparkles, ShoppingBag, ArrowRight, Utensils, Bike, MapPin, Compass, ShieldCheck 
+} from 'lucide-react';
+
+const INITIAL_ROLE_PROFILES: Record<UserRole, UserProfile> = {
+  customer: {
+    id: 'usr_customer_01',
+    name: 'অর্ণব ব্যানার্জী (Arnab Banerjee)',
+    phone: '+91 98301-88220',
+    role: 'customer',
+    email: 'arnab.kolkata@example.com',
+    address: 'সল্টলেক সেক্টর ৫, ইলেকট্রনিক্স কমপ্লেক্স, কলকাতা (Salt Lake Sector V, Kolkata)',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
+    isLoggedIn: true,
+  },
+  driver: {
+    id: 'usr_driver_01',
+    name: 'রুপম ব্যানার্জী (Rider Rupam Banerjee)',
+    phone: '+91 98310-99482',
+    role: 'driver',
+    email: 'rider.rupam@fastbite.in',
+    address: 'পার্ক স্ট্রিট সেন্ট্রাল হাব, কলকাতা',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
+    vehicleNumber: 'TVS Apache 160 (WB-02-AK-4819)',
+    employeeId: 'DRV-KOL-9948',
+    assignedHub: 'পার্ক স্ট্রিট সেন্ট্রাল হাব',
+    rating: 4.95,
+    tripsCompleted: 1840,
+    isDutyActive: true,
+    isLoggedIn: true,
+  },
+  kitchen: {
+    id: 'usr_kitchen_01',
+    name: 'শেফ তৌফিক আহমেদ (Chef Toufiq Ahmed)',
+    phone: '+91 98300-11223',
+    role: 'kitchen',
+    email: 'kitchen.parkst@fastbite.in',
+    restaurantId: 'ফাস্টবাইট এক্সপ্রেস কলকাতা (Park Street HQ)',
+    employeeId: 'KITCHEN-KOL-01',
+    address: '৭৭ পার্ক স্ট্রিট, কলকাতা ৭০০০১৬',
+    avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300',
+    isLoggedIn: true,
+  },
+  admin: {
+    id: 'usr_admin_01',
+    name: 'সুপার এডমিন রানা ব্যানার্জী (Super Admin Rana)',
+    phone: '+91 98300-00100',
+    role: 'admin',
+    email: 'admin.fastbite@foodexpress.in',
+    employeeId: 'ADMIN-SYS-2026',
+    address: 'হেড অফিস, পার্ক স্ট্রিট মোড়, কলকাতা',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300',
+    securityKey: 'ADMIN-2026-KEY',
+    isLoggedIn: true,
+  },
+};
 
 export default function App() {
-  // User Authentication State
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
+  // App Role Profiles (Separate dedicated profile for each app role)
+  const [roleProfiles, setRoleProfiles] = useState<Record<UserRole, UserProfile>>(() => {
     try {
-      const saved = localStorage.getItem('fastbite_user');
+      const saved = localStorage.getItem('fastbite_role_profiles');
       if (saved) return JSON.parse(saved);
     } catch (e) {
       console.error(e);
     }
-    return {
-      id: 'usr_default',
-      name: 'অর্ণব ব্যানার্জী (Arnab Banerjee)',
-      phone: '+91 98301-88220',
-      role: 'customer',
-      email: 'arnab.kolkata@example.com',
-      address: 'সল্টলেক সেক্টর ৫, ইলেকট্রনিক্স কমপ্লেক্স, কলকাতা (Salt Lake Sector V, Kolkata)',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
-      isLoggedIn: true,
-    };
+    return INITIAL_ROLE_PROFILES;
   });
+
+  const [role, setRole] = useState<UserRole>('customer');
+  const [customerTab, setCustomerTab] = useState<'menu' | 'tracking'>('menu');
+
+  // Active Current User profile based on selected app role
+  const currentUser = roleProfiles[role] || INITIAL_ROLE_PROFILES[role];
+
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
+
+  // Order Success Modal state
+  const [isOrderSuccessModalOpen, setIsOrderSuccessModalOpen] = useState<boolean>(false);
+  const [orderSuccessData, setOrderSuccessData] = useState<{
+    orderNumber: string;
+    totalAmount: number;
+    deliveryAddress: string;
+    estimatedMinutes: number;
+  } | null>(null);
 
   // Localization State (Default to INR currency for Kolkata)
   const [lang, setLang] = useState<Language>('bn');
   const [currency, setCurrency] = useState<Currency>('INR');
 
-  const [role, setRole] = useState<UserRole>('customer');
   const [selectedAddress, setSelectedAddress] = useState<string>(
-    currentUser?.address || INITIAL_CUSTOMER_LOCATION.address || 'সল্টলেক সেক্টর ৫, ইলেকট্রনিক্স কমপ্লেক্স, কলকাতা (Salt Lake Sector V, Kolkata)'
+    roleProfiles.customer?.address || INITIAL_CUSTOMER_LOCATION.address || 'সল্টলেক সেক্টর ৫, ইলেকট্রনিক্স কমপ্লেক্স, কলকাতা (Salt Lake Sector V, Kolkata)'
   );
 
-  // Sync selectedAddress when currentUser updates address or logs in
+  // Switch App Role Handler - automatically switches active profile
+  const handleSelectRole = (newRole: UserRole) => {
+    soundManager.playChime('click');
+    setRole(newRole);
+    if (newRole === 'customer' && roleProfiles.customer?.address) {
+      setSelectedAddress(roleProfiles.customer.address);
+    }
+  };
+
+  // Update Profile or Login User Handler
+  const handleLoginUser = (updatedUser: UserProfile) => {
+    const targetRole = updatedUser.role || role;
+    const newProfiles = {
+      ...roleProfiles,
+      [targetRole]: updatedUser,
+    };
+    setRoleProfiles(newProfiles);
+    try {
+      localStorage.setItem('fastbite_role_profiles', JSON.stringify(newProfiles));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Logout User Handler for active or target role
+  const handleLogoutUser = (targetRole?: UserRole) => {
+    const roleToLogout = targetRole || role;
+    const newProfiles = {
+      ...roleProfiles,
+      [roleToLogout]: {
+        ...INITIAL_ROLE_PROFILES[roleToLogout],
+        isLoggedIn: false,
+      },
+    };
+    setRoleProfiles(newProfiles);
+    try {
+      localStorage.setItem('fastbite_role_profiles', JSON.stringify(newProfiles));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Sync customer address to active order
   useEffect(() => {
-    if (currentUser?.address) {
-      setSelectedAddress(currentUser.address);
+    if (roleProfiles.customer?.address) {
+      setSelectedAddress(roleProfiles.customer.address);
       
-      // If there's an active order, update its delivery location in real-time
+      // If there's an active order, update its customer delivery location in real-time
       setActiveOrder((prev) => {
         if (!prev) return null;
-        const newCustomerLoc = parseLocationCoordinates(currentUser.address);
-        const newRoute = generateDynamicRoute(INITIAL_RESTAURANT.location, newCustomerLoc, 7);
+        const newCustomerLoc = parseLocationCoordinates(roleProfiles.customer.address);
+        const newRoute = generateDynamicRoute(prev.currentDriverLocation || INITIAL_RESTAURANT.location, newCustomerLoc, 7);
         return {
           ...prev,
-          deliveryAddress: currentUser.address,
+          deliveryAddress: roleProfiles.customer.address,
           customerLocation: newCustomerLoc,
           routeCoordinates: newRoute,
         };
       });
     }
-  }, [currentUser?.address]);
+  }, [roleProfiles.customer?.address]);
+
+  // Sync delivery partner (driver) profile to live order and driver marker map
+  useEffect(() => {
+    const driverProfile = roleProfiles.driver;
+    if (!driverProfile) return;
+
+    const updatedDriverObj: Driver = {
+      id: driverProfile.id || 'usr_driver_01',
+      name: driverProfile.name || 'রুপম ব্যানার্জী (Rider Rupam Banerjee)',
+      phone: driverProfile.phone || '+91 98310-99482',
+      photo: driverProfile.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
+      vehicleType: 'bike',
+      vehiclePlate: driverProfile.vehicleNumber || 'WB-02-AK-4819',
+      rating: driverProfile.rating || 4.95,
+      tripsCompleted: driverProfile.tripsCompleted || 1840,
+      batteryLevel: 94,
+    };
+
+    setDriversList((prev) =>
+      prev.map((d) => (d.id === updatedDriverObj.id || d.id === 'drv_01' ? { ...d, ...updatedDriverObj } : d))
+    );
+
+    setActiveOrder((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        driver: updatedDriverObj,
+      };
+    });
+  }, [roleProfiles.driver?.name, roleProfiles.driver?.vehicleNumber, roleProfiles.driver?.avatar, roleProfiles.driver?.phone]);
+
+  // Real device GPS driver location update handler
+  const handleUpdateDriverLocation = (newLoc: GeoPoint, addressStr: string) => {
+    setRoleProfiles((prev) => ({
+      ...prev,
+      driver: {
+        ...prev.driver,
+        address: addressStr,
+      },
+    }));
+
+    setActiveOrder((prev) => {
+      if (!prev) return null;
+      // Only recalculate route if driver position moved significantly
+      const prevLoc = prev.currentDriverLocation;
+      if (prevLoc && Math.abs(prevLoc.lat - newLoc.lat) < 0.00001 && Math.abs(prevLoc.lng - newLoc.lng) < 0.00001) {
+        return prev;
+      }
+      const updatedDriver: Driver = {
+        ...prev.driver,
+        name: roleProfiles.driver?.name || prev.driver.name,
+      };
+      const newRoute = generateDynamicRoute(newLoc, prev.customerLocation, 7);
+      return {
+        ...prev,
+        driver: updatedDriver,
+        currentDriverLocation: newLoc,
+        routeCoordinates: newRoute,
+      };
+    });
+  };
 
   // Generate realistic route waypoints from Restaurant to Customer location
   const generateDynamicRoute = (start: GeoPoint, end: GeoPoint, steps = 7): GeoPoint[] => {
@@ -154,6 +319,116 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
 
+  // Push Notifications State
+  const [pushEnabled, setPushEnabled] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('fastbite_push_enabled');
+      return saved !== null ? JSON.parse(saved) : true;
+    } catch {
+      return true;
+    }
+  });
+
+  const [pushNotificationsList, setPushNotificationsList] = useState<Array<{
+    id: string;
+    title: string;
+    body: string;
+    time: string;
+    read: boolean;
+  }>>(() => {
+    try {
+      const saved = localStorage.getItem('fastbite_push_list');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [
+      {
+        id: 'p_init_1',
+        title: 'ফাস্টবাইট পুশ নোটিফিকেশন সিস্টেম চালু আছে',
+        body: 'আপনার অর্ডারের লাইভ আপডেট ও ডেলিভারি অ্যালার্ট সরাসরি পুশ নোটিফিকেশনে পাওয়া যাবে।',
+        time: 'এখনই',
+        read: false,
+      }
+    ];
+  });
+
+  const [activePushToast, setActivePushToast] = useState<{ title: string; body: string } | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('fastbite_push_list', JSON.stringify(pushNotificationsList));
+    } catch {}
+  }, [pushNotificationsList]);
+
+  const triggerPushNotification = (title: string, body: string) => {
+    if (!pushEnabled) return;
+
+    if (soundEnabled) {
+      soundManager.playChime('push_notification');
+    }
+
+    const newPush = {
+      id: `push_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      title,
+      body,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      read: false,
+    };
+
+    setPushNotificationsList(prev => [newPush, ...prev].slice(0, 20));
+    setActivePushToast({ title, body });
+
+    setTimeout(() => {
+      setActivePushToast(prev => prev?.title === title ? null : prev);
+    }, 5000);
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        try {
+          new Notification(title, {
+            body,
+            icon: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&q=80&w=120'
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(permission => {
+          if (permission === 'granted') {
+            try {
+              new Notification(title, { body });
+            } catch (e) {}
+          }
+        });
+      }
+    }
+  };
+
+  const handleTogglePush = () => {
+    soundManager.playChime('click');
+    const newState = !pushEnabled;
+    setPushEnabled(newState);
+    try {
+      localStorage.setItem('fastbite_push_enabled', JSON.stringify(newState));
+    } catch {}
+
+    if (newState) {
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'granted') {
+        Notification.requestPermission();
+      }
+      triggerPushNotification('পুশ নোটিফিকেশন চালু করা হয়েছে', 'এখন থেকে সমস্ত অর্ডারের লাইভ আপডেট তাৎক্ষণিকভাবে পুশ নোটিফিকেশনে পাবেন।');
+    }
+  };
+
+  const handleClearPush = () => {
+    soundManager.playChime('click');
+    setPushNotificationsList([]);
+  };
+
+  const handleTestPush = () => {
+    soundManager.playChime('click');
+    triggerPushNotification('🧪 টেস্ট পুশ নোটিফিকেশন', 'আপনার ফাস্টবাইট পুশ নোটিফিকেশন সিস্টেম সফলভাবে কাজ করছে!');
+  };
+
   // Active Live Order
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [orderHistory, setOrderHistory] = useState<Order[]>([]);
@@ -191,7 +466,20 @@ export default function App() {
     ];
 
     const demoLoc = parseLocationCoordinates(selectedAddress);
-    const demoRoute = generateDynamicRoute(INITIAL_RESTAURANT.location, demoLoc, 7);
+    const driverAddressStr = roleProfiles.driver?.address || 'পার্ক স্ট্রিট সেন্ট্রাল হাব, কলকাতা';
+    const driverLoc = parseLocationCoordinates(driverAddressStr);
+    const activeDriverObj: Driver = {
+      id: roleProfiles.driver?.id || 'usr_driver_01',
+      name: roleProfiles.driver?.name || 'রুপম ব্যানার্জী (Rider Rupam Banerjee)',
+      phone: roleProfiles.driver?.phone || '+91 98310-99482',
+      photo: roleProfiles.driver?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
+      vehicleType: 'bike',
+      vehiclePlate: roleProfiles.driver?.vehicleNumber || 'WB-02-AK-4819',
+      rating: roleProfiles.driver?.rating || 4.95,
+      tripsCompleted: roleProfiles.driver?.tripsCompleted || 1840,
+      batteryLevel: 94,
+    };
+    const demoRoute = generateDynamicRoute(driverLoc, demoLoc, 7);
 
     const demoOrder: Order = {
       id: `ord_demo_${Date.now()}`,
@@ -212,8 +500,8 @@ export default function App() {
       deliveryNotes: 'বাসার গেটে বা গার্ডের সিকিউরিটিতে দিয়ে দেবেন।',
       restaurant: INITIAL_RESTAURANT,
       customerLocation: demoLoc,
-      driver: DEFAULT_DRIVER,
-      currentDriverLocation: demoRoute[1] || demoRoute[0],
+      driver: activeDriverObj,
+      currentDriverLocation: driverLoc,
       routeCoordinates: demoRoute,
       progressPercentage: 25,
       orderLogs: [
@@ -223,7 +511,7 @@ export default function App() {
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           status: 'ready_for_pickup',
           message: 'কলকাতা বিরিয়ানি ও মালাই লসি থার্মাল বক্সে প্যাকড সম্পন্ন',
-          detail: 'রাইডার রূপম খাবার গ্রহণ করেছেন',
+          detail: `রাইডার ${activeDriverObj.name} খাবার গ্রহণ করেছেন`,
           actor: 'driver',
         },
       ],
@@ -232,6 +520,7 @@ export default function App() {
     };
 
     setActiveOrder(demoOrder);
+    setCustomerTab('tracking');
     soundManager.playChime('order_placed');
   };
 
@@ -396,35 +685,6 @@ export default function App() {
     setMenuItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleLoginUser = (user: UserProfile) => {
-    setCurrentUser(user);
-    if (user.role) {
-      setRole(user.role);
-    }
-    try {
-      localStorage.setItem('fastbite_user', JSON.stringify(user));
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  const handleLogoutUser = () => {
-    const loggedOutUser: UserProfile = {
-      id: '',
-      name: 'গেস্ট কাস্টমার',
-      phone: '',
-      role: 'customer',
-      isLoggedIn: false,
-    };
-    setCurrentUser(loggedOutUser);
-    setRole('customer');
-    try {
-      localStorage.removeItem('fastbite_user');
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   // Checkout & Place New Order
   const handleCheckout = (
     subtotal: number, 
@@ -435,6 +695,20 @@ export default function App() {
   ) => {
     const orderNum = Math.floor(1000 + Math.random() * 9000).toString();
     const customerLocation = parseLocationCoordinates(addressToUse);
+    const driverAddressStr = roleProfiles.driver?.address || 'পার্ক স্ট্রিট সেন্ট্রাল হাব, কলকাতা';
+    const driverLoc = parseLocationCoordinates(driverAddressStr);
+    const activeDriverObj: Driver = {
+      id: roleProfiles.driver?.id || 'usr_driver_01',
+      name: roleProfiles.driver?.name || 'রুপম ব্যানার্জী (Rider Rupam Banerjee)',
+      phone: roleProfiles.driver?.phone || '+91 98310-99482',
+      photo: roleProfiles.driver?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
+      vehicleType: 'bike',
+      vehiclePlate: roleProfiles.driver?.vehicleNumber || 'WB-02-AK-4819',
+      rating: roleProfiles.driver?.rating || 4.95,
+      tripsCompleted: roleProfiles.driver?.tripsCompleted || 1840,
+      batteryLevel: 94,
+    };
+    const orderRoute = generateDynamicRoute(driverLoc, customerLocation, 7);
 
     const newOrder: Order = {
       id: `ord_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
@@ -449,15 +723,15 @@ export default function App() {
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       estimatedDeliveryMinutes: 20,
       etaTimestamp: new Date(Date.now() + 20 * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      customerName: currentUser?.isLoggedIn && currentUser.name ? currentUser.name : 'অর্ণব ব্যানার্জী',
-      customerPhone: currentUser?.isLoggedIn && currentUser.phone ? currentUser.phone : '+91 98301-88220',
+      customerName: roleProfiles.customer?.name || 'অর্ণব ব্যানার্জী',
+      customerPhone: roleProfiles.customer?.phone || '+91 98301-88220',
       deliveryAddress: addressToUse,
       deliveryNotes: 'কল করুন বা গেটে রাখুন।',
       restaurant: INITIAL_RESTAURANT,
       customerLocation,
-      driver: driversList[0] || DEFAULT_DRIVER,
-      currentDriverLocation: SAMPLE_ROUTE_COORDINATES[0],
-      routeCoordinates: SAMPLE_ROUTE_COORDINATES,
+      driver: activeDriverObj,
+      currentDriverLocation: driverLoc,
+      routeCoordinates: orderRoute,
       progressPercentage: 5,
       orderLogs: [
         {
@@ -477,6 +751,21 @@ export default function App() {
     setCartItems([]);
     setRouteProgressIdx(0);
     setIsSimPaused(false);
+
+    triggerPushNotification(
+      `🍽️ নতুন অর্ডার প্লেস হয়েছে! (${newOrder.orderNumber})`,
+      `আপনার অর্ডার সফলভাবে প্লেস করা হয়েছে। মোট মূল্য: ${formatPrice(newOrder.totalAmount, currency)}।`
+    );
+
+    // Trigger Order Success Modal & Sound
+    soundManager.playChime('order_placed');
+    setOrderSuccessData({
+      orderNumber: newOrder.orderNumber,
+      totalAmount: newOrder.totalAmount,
+      deliveryAddress: addressToUse,
+      estimatedMinutes: newOrder.estimatedDeliveryMinutes,
+    });
+    setIsOrderSuccessModalOpen(true);
   };
 
   // Update order status from Driver or Kitchen or Admin View
@@ -564,13 +853,14 @@ export default function App() {
       {/* Top Header Navigation */}
       <Header
         role={role}
-        onSelectRole={setRole}
+        onSelectRole={handleSelectRole}
         cartCount={cartItems.reduce((acc, i) => acc + i.quantity, 0)}
         onOpenCart={() => setIsCartOpen(true)}
         activeOrder={activeOrder}
         onOpenTracking={() => {
           soundManager.playChime('click');
           setRole('customer');
+          setCustomerTab('tracking');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         soundEnabled={soundEnabled}
@@ -586,94 +876,238 @@ export default function App() {
         selectedAddress={selectedAddress}
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthOpen(true)}
+        pushEnabled={pushEnabled}
+        onTogglePush={handleTogglePush}
+        pushNotifications={pushNotificationsList}
+        onClearPush={handleClearPush}
+        onTestPush={handleTestPush}
       />
+
+      {/* Floating Push Notification Toast Banner */}
+      {activePushToast && (
+        <div className="fixed bottom-6 right-6 z-50 max-w-sm bg-zinc-900 border border-orange-500/60 rounded-2xl p-4 shadow-2xl text-white flex items-start gap-3 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/40 text-orange-400 flex items-center justify-center shrink-0 animate-pulse">
+            <span className="text-lg">🔔</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold text-xs text-orange-400">{activePushToast.title}</div>
+            <p className="text-[11px] text-zinc-300 mt-0.5 leading-relaxed">{activePushToast.body}</p>
+          </div>
+          <button
+            onClick={() => setActivePushToast(null)}
+            className="text-zinc-400 hover:text-white text-xs font-bold px-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Main Page Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
         
         {/* Customer Role View */}
         {role === 'customer' && (
-          <div className="space-y-8">
+          <div className="space-y-6">
             
-            {/* Live Realtime Tracker Bar */}
-            {activeOrder && (
-              <RealtimeTracker
-                order={activeOrder}
-                onOpenChat={() => setIsChatOpen(true)}
-                onSimulateProgress={(nextStatus, customMsg) => {
-                  handleManualStatusUpdate(nextStatus, customMsg || `অর্ডার আপডেট: ${nextStatus}`);
-                }}
-                onTriggerDelay={() => {
-                  soundManager.playChime('click');
-                  setActiveOrder((prev) => {
-                    if (!prev) return null;
-                    return {
-                      ...prev,
-                      estimatedDeliveryMinutes: prev.estimatedDeliveryMinutes + 3,
-                      orderLogs: [
-                        ...prev.orderLogs,
-                        {
-                          id: `log_delay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-                          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                          status: prev.status,
-                          message: '⚠️ ট্রাফিক সিগন্যালে সামান্য বিলম্ব (+৩ মিনিট)',
-                          actor: 'driver',
-                        },
-                      ],
-                    };
-                  });
-                }}
-                isPaused={isSimPaused}
-                onTogglePause={() => setIsSimPaused((p) => !p)}
-                simSpeed={simSpeed}
-                onChangeSimSpeed={setSimSpeed}
-                onCompleteDelivery={handleDeliveryComplete}
-                lang={lang}
-                currency={currency}
-              />
-            )}
+            {/* Customer Navigation Tabs */}
+            <div className="flex items-center justify-between bg-zinc-900/90 backdrop-blur-md p-1.5 rounded-2xl border border-zinc-800 shadow-lg">
+              <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                <button
+                  id="btn-customer-tab-menu"
+                  onClick={() => {
+                    soundManager.playChime('click');
+                    setCustomerTab('menu');
+                  }}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all ${
+                    customerTab === 'menu'
+                      ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-md shadow-orange-600/20 ring-2 ring-orange-500/40'
+                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                  }`}
+                >
+                  <Utensils className="w-4 h-4 text-orange-400" />
+                  <span>১. খাবার মেনু</span>
+                </button>
 
-            {/* Main Menu & Ordering Section */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2">
-                    <Flame className="w-6 h-6 text-orange-500 fill-orange-500" />
-                    {t.menu.title}
-                  </h2>
-                  <p className="text-xs text-zinc-400">{t.menu.subtitle}</p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {!activeOrder && (
-                    <button
-                      onClick={handleLoadDemoOrder}
-                      className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 text-xs font-semibold border border-orange-500/30 transition-all"
-                      title="ডেমো ট্র্যাকিং দেখার জন্য ক্লিক করুন"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>স্যাম্পল অর্ডার টেস্ট</span>
-                    </button>
+                <button
+                  id="btn-customer-tab-tracking"
+                  onClick={() => {
+                    soundManager.playChime('click');
+                    setCustomerTab('tracking');
+                  }}
+                  className={`flex-1 sm:flex-none flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-extrabold transition-all relative ${
+                    customerTab === 'tracking'
+                      ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-md shadow-orange-600/20 ring-2 ring-orange-500/40'
+                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                  }`}
+                >
+                  <Bike className="w-4 h-4 text-amber-400" />
+                  <span>২. জিপিএস লাইভ ট্র্যাকিং</span>
+                  {activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled' && (
+                    <span className="flex h-2.5 w-2.5 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
                   )}
-
-                  <button
-                    onClick={() => setIsHistoryOpen(true)}
-                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-semibold border border-zinc-800 transition-colors"
-                  >
-                    <History className="w-4 h-4 text-orange-400" />
-                    <span>অর্ডার হিস্ট্রি ({orderHistory.length})</span>
-                  </button>
-                </div>
+                </button>
               </div>
 
-              <MenuSection
-                onSelectItem={setSelectedMenuItem}
-                onQuickAdd={handleQuickAdd}
-                lang={lang}
-                currency={currency}
-                menuItems={menuItems}
-              />
+              <div className="hidden md:flex items-center gap-2">
+                <button
+                  onClick={() => setIsHistoryOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold border border-zinc-700/60 transition-colors"
+                >
+                  <History className="w-3.5 h-3.5 text-orange-400" />
+                  <span>হিস্ট্রি ({orderHistory.length})</span>
+                </button>
+              </div>
             </div>
+
+            {/* TAB 1: FOOD MENU */}
+            {customerTab === 'menu' && (
+              <div className="space-y-6">
+                {/* Active Order alert banner with blinking animation */}
+                {activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled' && (
+                  <div 
+                    onClick={() => {
+                      soundManager.playChime('click');
+                      setCustomerTab('tracking');
+                    }}
+                    className="bg-gradient-to-r from-orange-950/90 via-zinc-900 to-amber-950/90 border border-orange-500/50 rounded-2xl p-4 flex items-center justify-between gap-3 text-white shadow-xl cursor-pointer hover:border-orange-500 transition-all group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-orange-500/20 border border-orange-500/50 text-orange-400 flex items-center justify-center shrink-0 animate-pulse">
+                        <Bike className="w-5 h-5 animate-bounce" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono font-extrabold text-orange-400 uppercase animate-pulse">
+                            🚨 আপনার খাবার আসতেছে! (#{activeOrder.orderNumber})
+                          </span>
+                        </div>
+                        <p className="text-xs text-zinc-300 font-medium mt-0.5">
+                          রাইডার {activeOrder.driver.name} আপনার খাবার নিয়ে রাস্তায় আছেন। লাইভ ট্র্যাকিং দেখতে ক্লিক করুন।
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-orange-400 group-hover:translate-x-1 transition-transform shrink-0">
+                      <span>লাইভ ম্যাপ</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Menu Section */}
+                <MenuSection
+                  onSelectItem={setSelectedMenuItem}
+                  onQuickAdd={handleQuickAdd}
+                  lang={lang}
+                  currency={currency}
+                  menuItems={menuItems}
+                />
+              </div>
+            )}
+
+            {/* TAB 2: DEDICATED GPS LIVE TRACKING PAGE */}
+            {customerTab === 'tracking' && (
+              <div className="space-y-6">
+                {activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled' ? (
+                  <RealtimeTracker
+                    order={activeOrder}
+                    onOpenChat={() => setIsChatOpen(true)}
+                    onSimulateProgress={(nextStatus, customMsg) => {
+                      handleManualStatusUpdate(nextStatus, customMsg || `অর্ডার আপডেট: ${nextStatus}`);
+                    }}
+                    onTriggerDelay={() => {
+                      soundManager.playChime('click');
+                      setActiveOrder((prev) => {
+                        if (!prev) return null;
+                        return {
+                          ...prev,
+                          estimatedDeliveryMinutes: prev.estimatedDeliveryMinutes + 3,
+                          orderLogs: [
+                            ...prev.orderLogs,
+                            {
+                              id: `log_delay_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
+                              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                              status: prev.status,
+                              message: '⚠️ ট্রাফিক সিগন্যালে সামান্য বিলম্ব (+৩ মিনিট)',
+                              actor: 'driver',
+                            },
+                          ],
+                        };
+                      });
+                    }}
+                    isPaused={isSimPaused}
+                    onTogglePause={() => setIsSimPaused((p) => !p)}
+                    simSpeed={simSpeed}
+                    onChangeSimSpeed={setSimSpeed}
+                    onCompleteDelivery={handleDeliveryComplete}
+                    lang={lang}
+                    currency={currency}
+                  />
+                ) : (
+                  /* Standby / Empty State for Live GPS Tracker Page */
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 sm:p-10 text-center text-white space-y-6 shadow-2xl max-w-3xl mx-auto">
+                    <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-orange-500 to-amber-500 p-0.5 shadow-xl shadow-orange-500/20">
+                      <div className="w-full h-full bg-zinc-950 rounded-[22px] flex items-center justify-center text-orange-400">
+                        <Bike className="w-10 h-10 animate-pulse" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 max-w-md mx-auto">
+                      <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight">
+                        বর্তমানে কোন লাইভ জিপিএস অর্ডার চলমান নেই
+                      </h2>
+                      <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+                        মেনু থেকে পছন্দের খাবার অর্ডার করলে স্যাটেলাইট ম্যাপে রাইডারের লাইভ লোকেশন ও ট্র্যাকিং সরাসরি দেখতে পাবেন।
+                      </p>
+                    </div>
+
+                    <div className="flex justify-center pt-2">
+                      <button
+                        onClick={() => {
+                          soundManager.playChime('click');
+                          setCustomerTab('menu');
+                        }}
+                        className="px-6 py-3 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-orange-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
+                        <Utensils className="w-4 h-4 text-white" />
+                        <span>খাবার মেনুতে যান</span>
+                      </button>
+                    </div>
+
+                    {/* Past Orders Trackers */}
+                    {orderHistory.length > 0 && (
+                      <div className="pt-6 border-t border-zinc-800 text-left space-y-3">
+                        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider flex items-center gap-2">
+                          <History className="w-4 h-4 text-orange-400" />
+                          আপনার পূর্ববর্তী অর্ডারসমূহ:
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {orderHistory.slice(0, 4).map((ord) => (
+                            <div key={ord.id} className="bg-zinc-950 p-3.5 rounded-2xl border border-zinc-800 flex items-center justify-between gap-3">
+                              <div>
+                                <div className="text-xs font-bold text-white font-mono">{ord.orderNumber}</div>
+                                <div className="text-[11px] text-zinc-400">{ord.createdAt} • {formatPrice(ord.totalAmount, currency)}</div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  soundManager.playChime('click');
+                                  setActiveOrder(ord);
+                                }}
+                                className="px-3 py-1.5 rounded-xl bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 font-bold text-xs"
+                              >
+                                রি-ট্র্যাক
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
           </div>
         )}
@@ -687,6 +1121,9 @@ export default function App() {
             onOpenChat={() => setIsChatOpen(true)}
             lang={lang}
             currency={currency}
+            currentUser={currentUser}
+            onOpenAuth={() => setIsAuthOpen(true)}
+            onUpdateDriverLocation={handleUpdateDriverLocation}
           />
         )}
 
@@ -695,6 +1132,8 @@ export default function App() {
           <KitchenView
             order={activeOrder}
             onUpdateStatus={handleManualStatusUpdate}
+            currentUser={currentUser}
+            onOpenAuth={() => setIsAuthOpen(true)}
           />
         )}
 
@@ -714,6 +1153,8 @@ export default function App() {
             onForceOrderStatus={handleManualStatusUpdate}
             drivers={driversList}
             onAssignDriver={handleAssignDriver}
+            currentUser={currentUser}
+            onOpenAuth={() => setIsAuthOpen(true)}
           />
         )}
 
@@ -791,7 +1232,65 @@ export default function App() {
         onLogin={handleLoginUser}
         onLogout={handleLogoutUser}
         targetRole={role}
+        lang={lang}
+        onSelectLang={setLang}
+        currency={currency}
+        onSelectCurrency={setCurrency}
       />
+
+      <OrderSuccessModal
+        isOpen={isOrderSuccessModalOpen}
+        onClose={() => setIsOrderSuccessModalOpen(false)}
+        orderNumber={orderSuccessData?.orderNumber || 'FD-1001'}
+        totalAmount={orderSuccessData?.totalAmount || 0}
+        deliveryAddress={orderSuccessData?.deliveryAddress || ''}
+        estimatedMinutes={orderSuccessData?.estimatedMinutes || 20}
+        currency={currency}
+        onTrackOrder={() => {
+          setRole('customer');
+          setCustomerTab('tracking');
+        }}
+      />
+
+      {/* Persistent Floating Sticky Bottom Cart Bar for Customer View */}
+      {role === 'customer' && cartItems.length > 0 && !isCartOpen && (
+        <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-6 sm:bottom-6 max-w-md w-full mx-auto z-40 animate-slide-up">
+          <div 
+            onClick={() => {
+              soundManager.playChime('click');
+              setIsCartOpen(true);
+            }}
+            className="bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white rounded-2xl p-3.5 sm:p-4 shadow-2xl shadow-orange-600/40 border-2 border-orange-400/50 backdrop-blur-md flex items-center justify-between cursor-pointer transition-all active:scale-[0.98] group"
+          >
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center border border-white/30 text-white group-hover:scale-110 transition-transform">
+                  <ShoppingBag className="w-5 h-5 text-white" />
+                </div>
+                <span className="absolute -top-1.5 -right-1.5 bg-white text-orange-600 font-black text-xs w-5 h-5 rounded-full flex items-center justify-center shadow-md">
+                  {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
+                </span>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-orange-100 flex items-center gap-1">
+                  <span>খাবারের ঝুড়ি (Food Cart)</span>
+                  <span className="text-[10px] bg-black/20 px-1.5 py-0.5 rounded-md text-amber-200">
+                    {cartItems.length} টি আইটেম
+                  </span>
+                </p>
+                <p className="text-sm font-extrabold text-white font-mono">
+                  {formatPrice(cartItems.reduce((acc, item) => acc + item.itemTotalPrice, 0), currency)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 bg-black/20 group-hover:bg-black/30 px-3 py-2 rounded-xl border border-white/20 text-xs font-extrabold text-white transition-colors">
+              <span>কার্ট দেখুন (View Cart)</span>
+              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

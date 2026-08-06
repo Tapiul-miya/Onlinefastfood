@@ -108,7 +108,7 @@ export const MapView: React.FC<MapViewProps> = ({
 
       const driverMarker = L.marker([driverLocation.lat, driverLocation.lng], { icon: driverIcon })
         .addTo(map)
-        .bindPopup(`<b>Courier: ${driver.name}</b><br/>Vehicle: ${driver.vehicleType} (${driver.vehiclePlate})`);
+        .bindPopup(`<b>🛵 ডেলিভারি পার্টনার: ${driver.name}</b><br/>যানবাহন: ${driver.vehiclePlate}<br/>${driverLocation.address ? `লাইভ লোকেশন: ${driverLocation.address}` : ''}`);
 
       driverMarkerRef.current = driverMarker;
 
@@ -125,12 +125,17 @@ export const MapView: React.FC<MapViewProps> = ({
     };
   }, []);
 
-  // Update driver marker location in real-time as coordinates change
+  // Update driver marker location and popup in real-time as coordinates change
   useEffect(() => {
     if (driverMarkerRef.current) {
       driverMarkerRef.current.setLatLng([driverLocation.lat, driverLocation.lng]);
+      driverMarkerRef.current.bindPopup(
+        `<b>🛵 ডেলিভারি পার্টনার: ${driver.name}</b><br/>যানবাহন: ${driver.vehiclePlate}<br/>${
+          driverLocation.address ? `লাইভ লোকেশন: ${driverLocation.address}` : ''
+        }`
+      );
     }
-  }, [driverLocation.lat, driverLocation.lng]);
+  }, [driverLocation.lat, driverLocation.lng, driverLocation.address, driver.name, driver.vehiclePlate]);
 
   return (
     <div className="relative w-full h-full min-h-[350px] rounded-2xl overflow-hidden border border-zinc-800 shadow-inner custom-leaflet-map">

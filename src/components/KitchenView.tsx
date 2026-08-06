@@ -1,17 +1,26 @@
 import React from 'react';
-import { Utensils, Clock, CheckCircle2, Flame, Package, AlertCircle, RefreshCw } from 'lucide-react';
-import { Order, OrderStatus } from '../types';
+import { Utensils, Clock, CheckCircle2, Flame, Package, AlertCircle, RefreshCw, Edit3, User } from 'lucide-react';
+import { Order, OrderStatus, UserProfile } from '../types';
 import { soundManager } from '../utils/audio';
 
 interface KitchenViewProps {
   order: Order | null;
   onUpdateStatus: (nextStatus: OrderStatus, logMessage: string, detail?: string) => void;
+  currentUser?: UserProfile | null;
+  onOpenAuth?: () => void;
 }
 
 export const KitchenView: React.FC<KitchenViewProps> = ({
   order,
   onUpdateStatus,
+  currentUser,
+  onOpenAuth,
 }) => {
+  const chefName = currentUser?.name || 'শেফ তৌফিক আহমেদ (Chef Toufiq Ahmed)';
+  const chefPhone = currentUser?.phone || '+91 98300-11223';
+  const stationId = currentUser?.employeeId || 'KITCHEN-KOL-01';
+  const restaurantName = currentUser?.restaurantId || 'ফাস্টবাইট এক্সপ্রেস কলকাতা (Park Street HQ)';
+  const chefPhoto = currentUser?.avatar || 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300';
   if (!order) {
     return (
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-white space-y-4 max-w-xl mx-auto my-12">
@@ -32,30 +41,46 @@ export const KitchenView: React.FC<KitchenViewProps> = ({
       {/* Kitchen Top Header */}
       <div className="bg-gradient-to-r from-rose-600 via-orange-600 to-zinc-900 rounded-3xl p-6 text-white border border-rose-500/30 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-black/40 border border-white/20 flex items-center justify-center text-3xl">
-            🍳
-          </div>
+          <img
+            src={chefPhoto}
+            alt={chefName}
+            className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-lg ring-2 ring-rose-400/30"
+          />
           <div>
-            <div className="flex items-center gap-2">
-              <span className="bg-black/40 text-rose-200 px-2 py-0.5 rounded text-xs font-mono font-bold">
-                KDS Station #01 • Sizzle & Grill HQ
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="bg-black/40 text-rose-200 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold border border-rose-500/30">
+                🍳 কিচেন প্রফাইল • {stationId}
               </span>
               <span className="text-xs text-emerald-300 font-bold flex items-center gap-1">
-                ● Ticket Queue Active
+                ● টিকিট কিউ অ্যাক্টিভ
               </span>
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight mt-0.5">Kitchen Display System</h1>
-            <p className="text-xs text-rose-100">
-              Live Order Ticket #{order.orderNumber} • {order.items.length} items
+            <h1 className="text-2xl font-extrabold tracking-tight mt-1">{chefName}</h1>
+            <p className="text-xs text-rose-100 flex items-center gap-2 mt-0.5">
+              <span>{restaurantName}</span>
+              <span>•</span>
+              <span>ফোন: {chefPhone}</span>
             </p>
           </div>
         </div>
 
-        {/* Status Badge */}
-        <div className="bg-black/40 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs space-y-1">
-          <div className="text-rose-200 font-semibold">Kitchen Stage</div>
-          <div className="text-white font-mono text-sm font-extrabold">
-            Status: <span className="uppercase text-amber-300">{order.status.replace('_', ' ')}</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              soundManager.playChime('click');
+              if (onOpenAuth) onOpenAuth();
+            }}
+            className="px-3.5 py-2 rounded-xl bg-black/40 hover:bg-black/60 border border-rose-400/40 text-rose-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
+          >
+            <Edit3 className="w-4 h-4 text-rose-400" />
+            <span>কিচেন প্রোফাইল এডিট</span>
+          </button>
+
+          <div className="bg-black/40 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs space-y-1">
+            <div className="text-rose-200 font-semibold">লাইভ টিকিট</div>
+            <div className="text-white font-mono text-sm font-extrabold">
+              অর্ডার #{order.orderNumber}
+            </div>
           </div>
         </div>
       </div>
@@ -83,9 +108,13 @@ export const KitchenView: React.FC<KitchenViewProps> = ({
                 soundManager.playChime('kitchen_ready');
                 onUpdateStatus('confirmed', 'Kitchen confirmed ticket', 'Order ticket assigned to Chef Marko');
               }}
-              className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-bold transition-colors border border-zinc-700"
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                order.status === 'confirmed'
+                  ? 'bg-blue-600 border-blue-400 text-white shadow-lg ring-2 ring-blue-500/40'
+                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
+              }`}
             >
-              1. Accept Ticket
+              1. Accept Ticket {order.status === 'confirmed' && '✓'}
             </button>
 
             <button
@@ -94,9 +123,13 @@ export const KitchenView: React.FC<KitchenViewProps> = ({
                 soundManager.playChime('click');
                 onUpdateStatus('preparing', 'Chef Marko started grilling Angus patties & loaded fries', 'Est 8 min cook time');
               }}
-              className="px-3 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition-colors shadow-md"
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                order.status === 'preparing'
+                  ? 'bg-orange-500 border-orange-300 text-black font-extrabold shadow-lg ring-2 ring-orange-500/40'
+                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
+              }`}
             >
-              2. Start Cooking 🔥
+              2. Start Cooking 🔥 {order.status === 'preparing' && '✓'}
             </button>
 
             <button
@@ -105,9 +138,13 @@ export const KitchenView: React.FC<KitchenViewProps> = ({
                 soundManager.playChime('kitchen_ready');
                 onUpdateStatus('ready_for_pickup', 'Food ready! Sealed in insulated thermal box at pickup counter', 'Awaiting courier Alex');
               }}
-              className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors shadow-md"
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                order.status === 'ready_for_pickup'
+                  ? 'bg-emerald-500 border-emerald-300 text-black font-extrabold shadow-lg ring-2 ring-emerald-500/40'
+                  : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700'
+              }`}
             >
-              3. Ready for Courier 📦
+              3. Ready for Courier 📦 {order.status === 'ready_for_pickup' && '✓'}
             </button>
 
           </div>

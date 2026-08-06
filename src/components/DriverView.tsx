@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Navigation, MapPin, MessageSquare, Zap, Phone, ExternalLink, CheckCircle2
+  Navigation, MapPin, MessageSquare, Zap, Phone, ExternalLink, CheckCircle2,
+  Bike, User, Edit3, ShieldCheck, Star, Award, Compass, RefreshCw, Radio
 } from 'lucide-react';
-import { Order, OrderStatus } from '../types';
+import { Order, OrderStatus, UserProfile, GeoPoint } from '../types';
 import { MapView } from './MapView';
 import { Language, Currency, formatPrice, TRANSLATIONS } from '../utils/i18n';
 import { soundManager } from '../utils/audio';
+import { fetchCurrentGpsLocation } from '../utils/geolocation';
 
 interface DriverViewProps {
   order: Order | null;
@@ -14,6 +16,9 @@ interface DriverViewProps {
   onOpenChat: () => void;
   lang: Language;
   currency: Currency;
+  currentUser?: UserProfile | null;
+  onOpenAuth?: () => void;
+  onUpdateDriverLocation?: (newLocation: GeoPoint, addressStr: string) => void;
 }
 
 export const DriverView: React.FC<DriverViewProps> = ({
@@ -23,8 +28,86 @@ export const DriverView: React.FC<DriverViewProps> = ({
   onOpenChat,
   lang,
   currency,
+  currentUser,
+  onOpenAuth,
+  onUpdateDriverLocation,
 }) => {
   const t = TRANSLATIONS[lang].driverApp;
+
+  // Real device GPS state
+  const [isLiveGpsActive, setIsLiveGpsActive] = useState<boolean>(false);
+  const [gpsLoading, setGpsLoading] = useState<boolean>(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [currentGpsCoords, setCurrentGpsCoords] = useState<{ lat: number; lng: number; accuracy?: number } | null>(null);
+
+  // Ref for onUpdateDriverLocation callback to avoid re-triggering watchPosition effect
+  const onUpdateDriverLocationRef = useRef(onUpdateDriverLocation);
+  useEffect(() => {
+    onUpdateDriverLocationRef.current = onUpdateDriverLocation;
+  }, [onUpdateDriverLocation]);
+
+  // Function to manually trigger device GPS fetch
+  const handleFetchRealGps = async () => {
+    soundManager.playChime('click');
+    setGpsLoading(true);
+    setGpsError(null);
+    const result = await fetchCurrentGpsLocation();
+    setGpsLoading(false);
+
+    if (result.success && result.lat && result.lng) {
+      setCurrentGpsCoords({ lat: result.lat, lng: result.lng });
+      setIsLiveGpsActive(true);
+      if (onUpdateDriverLocationRef.current) {
+        onUpdateDriverLocationRef.current(
+          { lat: result.lat, lng: result.lng, address: result.address },
+          result.address || `GPS: ${result.lat.toFixed(4)}° N, ${result.lng.toFixed(4)}° E`
+        );
+      }
+    } else {
+      setGpsError(result.errorMessage || 'জিপিএস কানেক্ট করা যায়নি।');
+    }
+  };
+
+  // Watch position for continuous real-time live location tracking
+  useEffect(() => {
+    let watchId: number | null = null;
+    if (isLiveGpsActive && navigator.geolocation) {
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const accuracy = pos.coords.accuracy;
+          setCurrentGpsCoords({ lat, lng, accuracy });
+          const addr = `রিয়েল ডিভাইস জিপিএস (GPS: ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E)`;
+          if (onUpdateDriverLocationRef.current) {
+            onUpdateDriverLocationRef.current({ lat, lng, address: addr }, addr);
+          }
+        },
+        (err) => {
+          console.warn('Live GPS watch error:', err);
+          if (err.code === 1) {
+            setGpsError('ব্রাউজার লোকেশন পারমিশন ডিনাই করা হয়েছে।');
+            setIsLiveGpsActive(false);
+          }
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      );
+    }
+    return () => {
+      if (watchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, [isLiveGpsActive]);
+
+  // Active rider profile data from currentUser or fallback to default
+  const riderName = currentUser?.name || 'রুপম ব্যানার্জী (Rider Rupam Banerjee)';
+  const riderPhone = currentUser?.phone || '+91 98310-99482';
+  const riderPhoto = currentUser?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300';
+  const vehicleNo = currentUser?.vehicleNumber || 'TVS Apache 160 (WB-02-AK-4819)';
+  const empId = currentUser?.employeeId || 'DRV-KOL-9948';
+  const rating = currentUser?.rating || 4.95;
+  const trips = currentUser?.tripsCompleted || 1840;
 
   if (!order) {
     return (
@@ -60,30 +143,47 @@ export const DriverView: React.FC<DriverViewProps> = ({
       <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-zinc-900 rounded-3xl p-6 text-white border border-amber-500/30 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <img
-            src={order.driver.photo}
-            alt={order.driver.name}
-            className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-lg"
+            src={riderPhoto}
+            alt={riderName}
+            className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-lg ring-2 ring-amber-400/30"
           />
           <div>
-            <div className="flex items-center gap-2">
-              <span className="bg-black/40 text-amber-200 px-2 py-0.5 rounded text-xs font-mono font-bold">
-                {t.title} • {order.driver.vehicleType.toUpperCase()} ({order.driver.vehiclePlate})
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="bg-black/40 text-amber-200 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold border border-amber-500/30">
+                🏍️ ডেলিভারি প্রোফাইল • {vehicleNo}
               </span>
               <span className="text-xs text-emerald-300 font-bold flex items-center gap-1">
-                ● {t.gpsActive}
+                ● লাইভ জিপিএস অ্যাক্টিভ ({empId})
               </span>
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight mt-0.5">{order.driver.name}</h1>
-            <p className="text-xs text-amber-100">
-              অর্ডার #{order.orderNumber} • {formatPrice(order.totalAmount, currency)} ({formatPrice(order.tip, currency)} টিপস)
+            <h1 className="text-2xl font-extrabold tracking-tight mt-1">{riderName}</h1>
+            <p className="text-xs text-amber-100 flex items-center gap-2 mt-0.5">
+              <span>ফোন: {riderPhone}</span>
+              <span>•</span>
+              <span className="flex items-center gap-1 text-amber-300 font-bold">
+                <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" /> {rating} ({trips}টি ট্রিপ)
+              </span>
             </p>
           </div>
         </div>
 
-        <div className="bg-black/40 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs space-y-1">
-          <div className="text-amber-200 font-semibold">{t.currentJob}</div>
-          <div className="text-white font-mono text-sm font-extrabold">
-            Status: <span className="uppercase text-orange-300">{order.status.replace('_', ' ')}</span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              soundManager.playChime('click');
+              if (onOpenAuth) onOpenAuth();
+            }}
+            className="px-3.5 py-2 rounded-xl bg-black/40 hover:bg-black/60 border border-amber-400/40 text-amber-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
+          >
+            <Edit3 className="w-4 h-4 text-amber-400" />
+            <span>রাইডার প্রোফাইল এডিট</span>
+          </button>
+
+          <div className="bg-black/40 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs space-y-1">
+            <div className="text-amber-200 font-semibold">{t.currentJob}</div>
+            <div className="text-white font-mono text-sm font-extrabold">
+              অর্ডার #{order.orderNumber}
+            </div>
           </div>
         </div>
       </div>
@@ -91,8 +191,76 @@ export const DriverView: React.FC<DriverViewProps> = ({
       {/* Main Grid: GPS Map & Dispatch Control Board */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Left 2 Cols: Map View */}
+        {/* Left 2 Cols: Map View & Real Live GPS Control */}
         <div className="lg:col-span-2 space-y-4">
+
+          {/* Real Live GPS Device Tracker Card */}
+          <div className="bg-gradient-to-r from-zinc-900 via-amber-950/40 to-zinc-900 border border-amber-500/40 rounded-3xl p-4 shadow-xl space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg ${
+                  isLiveGpsActive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 animate-pulse' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                }`}>
+                  <Radio className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                      📡 রিয়েল ডিভাইস জিপিএস লাইভ লোকেশন (Real GPS)
+                    </span>
+                    {isLiveGpsActive ? (
+                      <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-500/40 flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        লাইভ সিগন্যাল একটিভ
+                      </span>
+                    ) : (
+                      <span className="bg-amber-500/20 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-500/30">
+                        ম্যানুয়াল অবস্থান
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-zinc-400 mt-0.5">
+                    {currentGpsCoords
+                      ? `ডিভাইস স্থানাঙ্ক: ${currentGpsCoords.lat.toFixed(5)}° N, ${currentGpsCoords.lng.toFixed(5)}° E (${currentGpsCoords.accuracy ? `নির্ভুলতা ±${Math.round(currentGpsCoords.accuracy)}m` : 'জিপিএস লক'})`
+                      : 'আপনার মোবাইল/কম্পিউটারের বাস্তব জিপিএস অবস্থান ম্যাপে সরাসরি দেখান।'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-center">
+                <button
+                  onClick={handleFetchRealGps}
+                  disabled={gpsLoading}
+                  className="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-md active:scale-95 disabled:opacity-50"
+                >
+                  <Compass className={`w-4 h-4 ${gpsLoading ? 'animate-spin' : ''}`} />
+                  <span>{gpsLoading ? 'জিপিএস খোঁজা হচ্ছে...' : 'আমার জিপিএস আনুন'}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    soundManager.playChime('click');
+                    setIsLiveGpsActive((prev) => !prev);
+                  }}
+                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border flex items-center gap-1.5 active:scale-95 ${
+                    isLiveGpsActive
+                      ? 'bg-emerald-600/30 border-emerald-500/50 text-emerald-200 hover:bg-emerald-600/50'
+                      : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'
+                  }`}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isLiveGpsActive ? 'animate-spin' : ''}`} />
+                  <span>{isLiveGpsActive ? 'লাইভ ওয়াচ অন' : 'ওয়াচ চালু করুন'}</span>
+                </button>
+              </div>
+            </div>
+
+            {gpsError && (
+              <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-2.5 text-xs text-rose-300 flex items-center gap-2">
+                <span>⚠️ {gpsError}</span>
+              </div>
+            )}
+          </div>
+
           <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 shadow-xl space-y-3">
             <div className="flex items-center justify-between text-xs text-zinc-300 px-2">
               <span className="font-bold flex items-center gap-1.5 text-white">
@@ -128,9 +296,18 @@ export const DriverView: React.FC<DriverViewProps> = ({
                   soundManager.playChime('click');
                   onUpdateStatus('preparing', 'রাইডার কিচেনে পৌঁছেছে', 'খাবার প্যাক করার অপেক্ষায়');
                 }}
-                className="p-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-bold text-center transition-colors border border-zinc-700"
+                className={`p-3 rounded-xl text-xs font-bold text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
+                  order.status === 'preparing'
+                    ? 'bg-amber-500 text-black border-2 border-amber-300 font-extrabold shadow-lg shadow-amber-500/20 ring-2 ring-amber-500/40 scale-[1.02]'
+                    : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/80'
+                }`}
               >
-                ১. কিচেনে পৌঁছেছি
+                <span>১. কিচেনে পৌঁছেছি</span>
+                {order.status === 'preparing' && (
+                  <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1">
+                    ✓ বর্তমান স্ট্যাটাস
+                  </span>
+                )}
               </button>
 
               <button
@@ -139,9 +316,18 @@ export const DriverView: React.FC<DriverViewProps> = ({
                   soundManager.playChime('driver_pickup');
                   onUpdateStatus('ready_for_pickup', 'রাইডার খাবার রিসিভ করেছে', 'থার্মাল ব্যাগে খাবার রাখা হয়েছে');
                 }}
-                className="p-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-bold text-center transition-colors border border-zinc-700"
+                className={`p-3 rounded-xl text-xs font-bold text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
+                  order.status === 'ready_for_pickup'
+                    ? 'bg-blue-500 text-white border-2 border-blue-300 font-extrabold shadow-lg shadow-blue-500/20 ring-2 ring-blue-500/40 scale-[1.02]'
+                    : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/80'
+                }`}
               >
-                ২. খাবার গ্রহণ
+                <span>২. খাবার গ্রহণ</span>
+                {order.status === 'ready_for_pickup' && (
+                  <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1">
+                    ✓ বর্তমান স্ট্যাটাস
+                  </span>
+                )}
               </button>
 
               <button
@@ -150,9 +336,18 @@ export const DriverView: React.FC<DriverViewProps> = ({
                   soundManager.playChime('click');
                   onUpdateStatus('on_the_way', 'রাইডার গন্তব্যের উদ্দেশ্যে রওনা দিয়েছে', 'গতি: ৩২ কিমি/ঘণ্টা');
                 }}
-                className="p-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold text-center transition-colors shadow-md"
+                className={`p-3 rounded-xl text-xs font-bold text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
+                  order.status === 'on_the_way'
+                    ? 'bg-amber-500 text-black border-2 border-amber-300 font-extrabold shadow-lg shadow-amber-500/20 ring-2 ring-amber-500/40 scale-[1.02]'
+                    : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/80'
+                }`}
               >
-                ৩. রাইড শুরু
+                <span>৩. রাইড শুরু</span>
+                {order.status === 'on_the_way' && (
+                  <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1">
+                    ✓ বর্তমান স্ট্যাটাস
+                  </span>
+                )}
               </button>
 
               <button
@@ -161,9 +356,18 @@ export const DriverView: React.FC<DriverViewProps> = ({
                   soundManager.playChime('delivered');
                   onUpdateStatus('delivered', 'খাবার কাস্টমারের নিকট সফলভাবে হস্তান্তরিত হয়েছে!', 'ধন্যবাদ!');
                 }}
-                className="p-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold text-center transition-colors shadow-md"
+                className={`p-3 rounded-xl text-xs font-bold text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
+                  order.status === 'delivered'
+                    ? 'bg-emerald-500 text-black border-2 border-emerald-300 font-extrabold shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-500/40 scale-[1.02]'
+                    : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-200 border border-zinc-700/80'
+                }`}
               >
-                ৪. ডেলিভারি সম্পন্ন
+                <span>৪. ডেলিভারি সম্পন্ন</span>
+                {order.status === 'delivered' && (
+                  <span className="text-[10px] bg-black/30 px-2 py-0.5 rounded-full font-extrabold flex items-center gap-1">
+                    ✓ বর্তমান স্ট্যাটাস
+                  </span>
+                )}
               </button>
             </div>
           </div>

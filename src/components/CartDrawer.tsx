@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { X, Trash2, Plus, Minus, Tag, Bike, Clock, ArrowRight, ShieldCheck, MapPin, Navigation, RefreshCw, Check } from 'lucide-react';
 import { CartItem } from '../types';
 import { Language, Currency, formatPrice, TRANSLATIONS } from '../utils/i18n';
-import { REGIONAL_PRESET_LOCATIONS } from '../data/mockData';
+
 import { soundManager } from '../utils/audio';
+import { fetchCurrentGpsLocation } from '../utils/geolocation';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -50,84 +51,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     setGpsSuccessMsg('');
     soundManager.playChime('click');
 
-    const applyCartGpsAddress = (newGpsAddress: string, isRealGps: boolean) => {
-      setIsLocating(false);
-      onSelectAddress(newGpsAddress);
-      if (isRealGps) {
-        setGpsSuccessMsg('লাইভ জিপিএস লোকেশন নেওয়া হয়েছে! রাইডার এই ঠিকানায় আসবেন।');
-        soundManager.playChime('order_placed');
-      } else {
-        setGpsSuccessMsg('জিপিএস সিগন্যাল পাওয়া যায়নি। আপনি ম্যানুয়ালি নিজের ঠিকানা লিখে দিতে পারেন।');
-      }
-    };
+    const result = await fetchCurrentGpsLocation();
+    setIsLocating(false);
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const lat = position.coords.latitude;
-          const lng = position.coords.longitude;
-          let realAddress = '';
-
-          // 1. BigDataCloud reverse geocoding
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000);
-            const res = await fetch(
-              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=bn`,
-              { signal: controller.signal }
-            );
-            clearTimeout(timeoutId);
-            if (res.ok) {
-              const data = await res.json();
-              const place = data.locality || data.city || data.localityInfo?.informative?.[0]?.name;
-              const region = data.principalSubdivision || data.countryName;
-              if (place) {
-                realAddress = `${place}, ${region}`;
-              }
-            }
-          } catch (e) {
-            console.warn('BigDataCloud geocode failed:', e);
-          }
-
-          // 2. Nominatim fallback
-          if (!realAddress) {
-            try {
-              const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 3000);
-              const res = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16`,
-                { signal: controller.signal }
-              );
-              clearTimeout(timeoutId);
-              if (res.ok) {
-                const data = await res.json();
-                if (data && data.display_name) {
-                  const parts = data.display_name.split(',');
-                  realAddress = parts.slice(0, 3).join(',').trim();
-                }
-              }
-            } catch (e) {
-              console.warn('Nominatim geocode failed:', e);
-            }
-          }
-
-          const finalLocString = realAddress
-            ? `${realAddress} (GPS: ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E)`
-            : `লাইভ লোকেশন (GPS: ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E)`;
-
-          applyCartGpsAddress(finalLocString, true);
-        },
-        (error) => {
-          console.warn('Cart Geolocation permission/error:', error);
-          setIsLocating(false);
-          setGpsSuccessMsg('ব্রাউজারে জিপিএস পারমিশন অফ করা আছে। অনুগ্রহ করে নিচে আপনার নিজস্ব বাসার সঠিক ঠিকানাটি টাইপ করুন।');
-          soundManager.playChime('click');
-        },
-        { timeout: 5000, enableHighAccuracy: true, maximumAge: 10000 }
-      );
+    if (result.success && result.address) {
+      onSelectAddress(result.address);
+      setGpsSuccessMsg('লাইভ জিপিএস লোকেশন পাওয়া গেছে! রাইডার এই ঠিকানায় আসবেন।');
+      soundManager.playChime('order_placed');
     } else {
-      setIsLocating(false);
-      setGpsSuccessMsg('জিপিএস সিগন্যাল পাওয়া যায়নি। নিচে বক্সে আপনার সঠিক ঠিকানাটি ম্যানুয়ালি টাইপ করুন।');
+      setGpsSuccessMsg(result.errorMessage || 'জিপিএস সিগন্যাল পাওয়া যায়নি। নিচে বক্সে আপনার সঠিক ঠিকানাটি টাইপ করুন।');
+      soundManager.playChime('click');
     }
   };
 
@@ -225,30 +158,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   className="w-full bg-zinc-900 border border-zinc-800 text-white rounded-xl p-2.5 text-xs font-semibold focus:border-orange-500 outline-none resize-none"
                 />
 
-                {/* 1-Click Preset Pills */}
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold text-zinc-400 block">⚡ ১-ক্লিকে টেস্ট / জনপ্রিয় লোকেশন সিলেক্ট করুন:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {REGIONAL_PRESET_LOCATIONS.map((preset, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => {
-                          onSelectAddress(preset.address);
-                          setGpsSuccessMsg(`লোকেশন সেট করা হয়েছে: ${preset.name}`);
-                          soundManager.playChime('click');
-                        }}
-                        className={`px-2 py-0.5 rounded-lg border text-[10px] font-semibold transition-all cursor-pointer active:scale-95 ${
-                          selectedAddress === preset.address
-                            ? 'bg-orange-600 text-white border-orange-500 shadow-sm'
-                            : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800 hover:border-orange-500/40'
-                        }`}
-                      >
-                        {preset.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+
               </div>
 
               {gpsSuccessMsg && (

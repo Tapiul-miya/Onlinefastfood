@@ -146,5 +146,10 @@ export interface UserProfile {
   restaurantId?: string;
   vehicleNumber?: string;
   employeeId?: string;
+  tripsCompleted?: number;
+  rating?: number;
+  assignedHub?: string;
+  isDutyActive?: boolean;
+  securityKey?: string;
 }
 
