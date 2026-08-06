@@ -24,6 +24,7 @@ interface AuthModalProps {
   onSelectCurrency?: (currency: Currency) => void;
   activeOrder?: Order | null;
   onCancelOrder?: () => void;
+  isRoleLocked?: boolean;
 }
 
 const AVATAR_PRESETS = [
@@ -46,6 +47,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onSelectCurrency,
   activeOrder,
   onCancelOrder,
+  isRoleLocked = false,
 }) => {
   // Active App Role Tab inside Auth Modal (Customer, Kitchen, Driver, Admin)
   const [selectedAppRole, setSelectedAppRole] = useState<UserRole>(targetRole);
@@ -56,6 +58,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setSelectedAppRole(targetRole);
     }
   }, [isOpen, targetRole]);
+
+  // Force role if locked
+  useEffect(() => {
+    if (isRoleLocked && selectedAppRole !== targetRole) {
+      setSelectedAppRole(targetRole);
+    }
+  }, [isRoleLocked, selectedAppRole, targetRole]);
 
   // Auth Action Mode per role: 'login' or 'signup'
   const [authAction, setAuthAction] = useState<'login' | 'signup'>('login');

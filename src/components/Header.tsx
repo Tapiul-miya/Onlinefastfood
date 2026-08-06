@@ -6,6 +6,7 @@ import { soundManager } from '../utils/audio';
 
 interface HeaderProps {
   role: UserRole;
+  isRoleLocked?: boolean;
   onSelectRole: (role: UserRole) => void;
   activeOrder: Order | null;
   onOpenTracking: () => void;
@@ -26,6 +27,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   role,
+  isRoleLocked = false,
   onSelectRole,
   activeOrder,
   onOpenTracking,
@@ -242,85 +244,87 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Dedicated 4 Main Apps Tab Navigation Bar */}
-        <div className="py-2 border-t border-zinc-800/80 overflow-x-auto no-scrollbar">
-          <div className="flex items-center justify-between min-w-max gap-2 text-xs font-medium">
-            <span className="text-[11px] text-zinc-400 font-semibold uppercase tracking-wider hidden md:flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-orange-400" /> অ্যাপ সিলেক্টর:
-            </span>
+        {!isRoleLocked && (
+          <div className="py-2 border-t border-zinc-800/80 overflow-x-auto no-scrollbar">
+            <div className="flex items-center justify-between min-w-max gap-2 text-xs font-medium">
+              <span className="text-[11px] text-zinc-400 font-semibold uppercase tracking-wider hidden md:flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-orange-400" /> অ্যাপ সিলেক্টর:
+              </span>
 
-            <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto">
-              
-              {/* 1. Customer App Tab */}
-              <button
-                id="role-btn-customer"
-                onClick={() => { soundManager.playChime('click'); onSelectRole('customer'); }}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all ${
-                  role === 'customer'
-                    ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-lg shadow-orange-600/30 ring-2 ring-orange-500/50 font-bold scale-105'
-                    : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
-                }`}
-              >
-                <User className="w-4 h-4 text-orange-400" />
-                <div className="text-left leading-tight">
-                  <div className="font-bold text-xs sm:text-sm">১. {t.roles.customer}</div>
-                  <div className="text-[9px] opacity-80 hidden sm:block">খাবার অর্ডার ও জিপিএস ট্র্যাকিং</div>
-                </div>
-              </button>
+              <div className="flex items-center gap-1.5 sm:gap-2 w-full md:w-auto">
+                
+                {/* 1. Customer App Tab */}
+                <button
+                  id="role-btn-customer"
+                  onClick={() => { soundManager.playChime('click'); onSelectRole('customer'); }}
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all ${
+                    role === 'customer'
+                      ? 'bg-gradient-to-r from-orange-600 to-amber-600 text-white shadow-lg shadow-orange-600/30 ring-2 ring-orange-500/50 font-bold scale-105'
+                      : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
+                  }`}
+                >
+                  <User className="w-4 h-4 text-orange-400" />
+                  <div className="text-left leading-tight">
+                    <div className="font-bold text-xs sm:text-sm">১. {t.roles.customer}</div>
+                    <div className="text-[9px] opacity-80 hidden sm:block">খাবার অর্ডার ও জিপিএস ট্র্যাকিং</div>
+                  </div>
+                </button>
 
-              {/* 2. Driver / Delivery App Tab */}
-              <button
-                id="role-btn-driver"
-                onClick={() => { soundManager.playChime('click'); onSelectRole('driver'); }}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all ${
-                  role === 'driver'
-                    ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-white shadow-lg shadow-amber-600/30 ring-2 ring-amber-500/50 font-bold scale-105'
-                    : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
-                }`}
-              >
-                <Bike className="w-4 h-4 text-amber-400" />
-                <div className="text-left leading-tight">
-                  <div className="font-bold text-xs sm:text-sm">২. {t.roles.driver}</div>
-                  <div className="text-[9px] opacity-80 hidden sm:block">ডেলিভারি ট্রিপ ও রাইডার মোড</div>
-                </div>
-              </button>
+                {/* 2. Driver / Delivery App Tab */}
+                <button
+                  id="role-btn-driver"
+                  onClick={() => { soundManager.playChime('click'); onSelectRole('driver'); }}
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all ${
+                    role === 'driver'
+                      ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-white shadow-lg shadow-amber-600/30 ring-2 ring-amber-500/50 font-bold scale-105'
+                      : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
+                  }`}
+                >
+                  <Bike className="w-4 h-4 text-amber-400" />
+                  <div className="text-left leading-tight">
+                    <div className="font-bold text-xs sm:text-sm">২. {t.roles.driver}</div>
+                    <div className="text-[9px] opacity-80 hidden sm:block">ডেলিভারি ট্রিপ ও রাইডার মোড</div>
+                  </div>
+                </button>
 
-              {/* 3. Kitchen KDS App Tab */}
-              <button
-                id="role-btn-kitchen"
-                onClick={() => { soundManager.playChime('click'); onSelectRole('kitchen'); }}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all ${
-                  role === 'kitchen'
-                    ? 'bg-gradient-to-r from-rose-600 to-orange-600 text-white shadow-lg shadow-rose-600/30 ring-2 ring-rose-500/50 font-bold scale-105'
-                    : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
-                }`}
-              >
-                <Utensils className="w-4 h-4 text-rose-400" />
-                <div className="text-left leading-tight">
-                  <div className="font-bold text-xs sm:text-sm">৩. {t.roles.kitchen}</div>
-                  <div className="text-[9px] opacity-80 hidden sm:block">রেস্তোরাঁ কিচেন টিকিট স্ক্রিন</div>
-                </div>
-              </button>
+                {/* 3. Kitchen KDS App Tab */}
+                <button
+                  id="role-btn-kitchen"
+                  onClick={() => { soundManager.playChime('click'); onSelectRole('kitchen'); }}
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all ${
+                    role === 'kitchen'
+                      ? 'bg-gradient-to-r from-rose-600 to-orange-600 text-white shadow-lg shadow-rose-600/30 ring-2 ring-rose-500/50 font-bold scale-105'
+                      : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
+                  }`}
+                >
+                  <Utensils className="w-4 h-4 text-rose-400" />
+                  <div className="text-left leading-tight">
+                    <div className="font-bold text-xs sm:text-sm">৩. {t.roles.kitchen}</div>
+                    <div className="text-[9px] opacity-80 hidden sm:block">রেস্তোরাঁ কিচেন টিকিট স্ক্রিন</div>
+                  </div>
+                </button>
 
-              {/* 4. Admin App Tab */}
-              <button
-                id="role-btn-admin"
-                onClick={() => { soundManager.playChime('click'); onSelectRole('admin'); }}
-                className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all ${
-                  role === 'admin'
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 ring-2 ring-purple-500/50 font-bold scale-105'
-                    : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
-                }`}
-              >
-                <ShieldAlert className="w-4 h-4 text-purple-400" />
-                <div className="text-left leading-tight">
-                  <div className="font-bold text-xs sm:text-sm">৪. {t.roles.admin}</div>
-                  <div className="text-[9px] opacity-80 hidden sm:block">মেনু এডিট ও ম্যানেজমেন্ট</div>
-                </div>
-              </button>
+                {/* 4. Admin App Tab */}
+                <button
+                  id="role-btn-admin"
+                  onClick={() => { soundManager.playChime('click'); onSelectRole('admin'); }}
+                  className={`flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all ${
+                    role === 'admin'
+                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 ring-2 ring-purple-500/50 font-bold scale-105'
+                      : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
+                  }`}
+                >
+                  <ShieldAlert className="w-4 h-4 text-purple-400" />
+                  <div className="text-left leading-tight">
+                    <div className="font-bold text-xs sm:text-sm">৪. {t.roles.admin}</div>
+                    <div className="text-[9px] opacity-80 hidden sm:block">মেনু এডিট ও ম্যানেজমেন্ট</div>
+                  </div>
+                </button>
 
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
       </div>
     </header>

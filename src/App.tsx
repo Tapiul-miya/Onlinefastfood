@@ -4,6 +4,7 @@ import {
   MenuItem, SelectedOption, CartItem, Order, OrderStatus, 
   UserRole, ChatMessage, Driver, UserProfile, GeoPoint 
 } from './types';
+import { App as CapApp } from '@capacitor/app';
 import { 
   MENU_ITEMS, INITIAL_RESTAURANT, INITIAL_CUSTOMER_LOCATION, 
   DEFAULT_DRIVER, INITIAL_DRIVERS_LIST, SAMPLE_ROUTE_COORDINATES, INITIAL_PRESET_LOGS,
@@ -96,6 +97,34 @@ export default function App() {
   });
 
   const [role, setRole] = useState<UserRole>('customer');
+  const [isRoleLocked, setIsRoleLocked] = useState<boolean>(false);
+
+  useEffect(() => {
+    const detectFlavor = async () => {
+      try {
+        const info = await CapApp.getInfo();
+        const appId = info.id;
+        
+        if (appId.includes('.customer')) {
+          setRole('customer');
+          setIsRoleLocked(true);
+        } else if (appId.includes('.kitchen')) {
+          setRole('kitchen');
+          setIsRoleLocked(true);
+        } else if (appId.includes('.rider')) {
+          setRole('driver');
+          setIsRoleLocked(true);
+        } else if (appId.includes('.admin')) {
+          setRole('admin');
+          setIsRoleLocked(true);
+        }
+      } catch (e) {
+        console.log('Not running on Android/Capacitor or Info plugin missing');
+      }
+    };
+    detectFlavor();
+  }, []);
+
   const [customerTab, setCustomerTab] = useState<'menu' | 'tracking'>('menu');
 
   // Active Current User profile based on selected app role
@@ -122,6 +151,7 @@ export default function App() {
 
   // Switch App Role Handler - automatically switches active profile
   const handleSelectRole = (newRole: UserRole) => {
+    if (isRoleLocked) return;
     soundManager.playChime('click');
     setRole(newRole);
     if (newRole === 'customer' && roleProfiles.customer?.address) {
@@ -948,6 +978,7 @@ export default function App() {
       {/* Top Header Navigation */}
       <Header
         role={role}
+        isRoleLocked={isRoleLocked}
         onSelectRole={handleSelectRole}
         activeOrder={activeOrder}
         onOpenTracking={() => {
@@ -1334,6 +1365,7 @@ export default function App() {
         onLogin={handleLoginUser}
         onLogout={handleLogoutUser}
         targetRole={role}
+        isRoleLocked={isRoleLocked}
         lang={lang}
         onSelectLang={setLang}
         currency={currency}
