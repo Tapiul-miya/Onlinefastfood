@@ -1,0 +1,1414 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  X, Smartphone, Mail, Lock, User, CheckCircle2, ArrowRight, 
+  ShieldCheck, Sparkles, LogOut, Utensils, Bike, Settings,
+  KeyRound, FileText, BadgeAlert, Building2, MapPin, Navigation,
+  Edit3, Save, RefreshCw, Compass, UserCheck, Home, Check
+} from 'lucide-react';
+import { UserProfile, UserRole } from '../types';
+import { REGIONAL_PRESET_LOCATIONS } from '../data/mockData';
+import { soundManager } from '../utils/audio';
+
+interface AuthModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  currentUser: UserProfile | null;
+  onLogin: (user: UserProfile) => void;
+  onLogout: () => void;
+  targetRole?: UserRole;
+}
+
+const AVATAR_PRESETS = [
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
+];
+
+export const AuthModal: React.FC<AuthModalProps> = ({
+  isOpen,
+  onClose,
+  currentUser,
+  onLogin,
+  onLogout,
+  targetRole = 'customer',
+}) => {
+  // Active App Role Tab inside Auth Modal (Customer, Kitchen, Driver, Admin)
+  const [selectedAppRole, setSelectedAppRole] = useState<UserRole>(targetRole);
+
+  // Sync with targetRole when opened
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedAppRole(targetRole);
+    }
+  }, [isOpen, targetRole]);
+
+  // Auth Action Mode per role: 'login' or 'signup'
+  const [authAction, setAuthAction] = useState<'login' | 'signup'>('login');
+
+  // Customer State
+  const [custLoginMethod, setCustLoginMethod] = useState<'otp' | 'email'>('otp');
+  const [phone, setPhone] = useState('9830188220');
+  const [countryCode, setCountryCode] = useState('+91');
+  const [otpStep, setOtpStep] = useState<'phone' | 'verify'>('phone');
+  const [otpValue, setOtpValue] = useState('');
+  const [simulatedOtp, setSimulatedOtp] = useState('');
+  const [custName, setCustName] = useState('');
+  const [custEmail, setCustEmail] = useState('');
+  const [custPassword, setCustPassword] = useState('');
+  const [custAddress, setCustAddress] = useState('সল্টলেক সেক্টর ৫, কলকাতা (Sector 5, Salt Lake)');
+
+  // Profile Edit State (For Logged In User)
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState(currentUser?.name || '');
+  const [editPhone, setEditPhone] = useState(currentUser?.phone || '');
+  const [editEmail, setEditEmail] = useState(currentUser?.email || '');
+  const [editAddress, setEditAddress] = useState(currentUser?.address || 'সল্টলেক সেক্টর ৫, কলকাতা');
+  const [editAvatar, setEditAvatar] = useState(currentUser?.avatar || '');
+
+  // GPS Location Status
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationSuccessMsg, setLocationSuccessMsg] = useState('');
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState('');
+
+  // Kitchen State
+  const [kitchenId, setKitchenId] = useState('KITCHEN-KOL-01');
+  const [chefPin, setChefPin] = useState('8899');
+  const [kitchenName, setKitchenName] = useState('পার্ক স্ট্রিট সেন্ট্রাল কিচেন');
+  const [chefName, setChefName] = useState('শেফ তৌফিক আহমেদ');
+
+  // Driver / Rider State
+  const [riderPhone, setRiderPhone] = useState('9831099882');
+  const [vehiclePlate, setVehiclePlate] = useState('WB-02-AK-4920');
+  const [riderPin, setRiderPin] = useState('5522');
+  const [riderName, setRiderName] = useState('রূপম সেনগুপ্ত');
+
+  // Admin State
+  const [adminEmail, setAdminEmail] = useState('admin.fastbite@foodexpress.in');
+  const [adminKey, setAdminKey] = useState('ADMIN-2026-KEY');
+  const [adminName, setAdminName] = useState('সুপার এডমিন রানা ব্যানার্জী');
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  // Sync profile fields when currentUser changes
+  useEffect(() => {
+    if (currentUser) {
+      setEditName(currentUser.name || '');
+      setEditPhone(currentUser.phone || '');
+      setEditEmail(currentUser.email || '');
+      setEditAddress(currentUser.address || 'সল্টলেক সেক্টর ৫, কলকাতা');
+      setEditAvatar(currentUser.avatar || AVATAR_PRESETS[0]);
+    }
+  }, [currentUser, isOpen]);
+
+  if (!isOpen) return null;
+
+  // GPS Location Detection Handler with real reverse geocoding & graceful fallback
+  const handleDetectCurrentLocation = async (isForProfileUpdate: boolean = false) => {
+    setIsLocating(true);
+    setErrorMsg('');
+    setLocationSuccessMsg('');
+    soundManager.playChime('click');
+
+    const applyDetectedAddress = (locString: string, isRealGps: boolean) => {
+      setIsLocating(false);
+      if (isForProfileUpdate) {
+        setEditAddress(locString);
+        if (currentUser) {
+          const updatedUser: UserProfile = {
+            ...currentUser,
+            address: locString,
+          };
+          onLogin(updatedUser);
+        }
+      } else {
+        setCustAddress(locString);
+      }
+      if (isRealGps) {
+        setLocationSuccessMsg('লাইভ জিপিএস লোকেশন পাওয়া গেছে!');
+        soundManager.playChime('order_placed');
+      } else {
+        setErrorMsg('ব্রাউজারে জিপিএস পারমিশন পাওয়া যায়নি। অনুগ্রহ করে নিচে আপনার সঠিক ঠিকানাটি লিখে দিন।');
+      }
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+          let realAddress = '';
+
+          // 1. Try BigDataCloud Reverse Geocoding Client API (Fast, Free, CORS-friendly)
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            const res = await fetch(
+              `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=bn`,
+              { signal: controller.signal }
+            );
+            clearTimeout(timeoutId);
+            if (res.ok) {
+              const data = await res.json();
+              const place = data.locality || data.city || data.localityInfo?.informative?.[0]?.name;
+              const region = data.principalSubdivision || data.countryName;
+              if (place) {
+                realAddress = `${place}, ${region}`;
+              }
+            }
+          } catch (e) {
+            console.warn('BigDataCloud geocode failed:', e);
+          }
+
+          // 2. Try Nominatim as secondary reverse geocoding
+          if (!realAddress) {
+            try {
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 3000);
+              const res = await fetch(
+                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16`,
+                { signal: controller.signal }
+              );
+              clearTimeout(timeoutId);
+              if (res.ok) {
+                const data = await res.json();
+                if (data && data.display_name) {
+                  const parts = data.display_name.split(',');
+                  realAddress = parts.slice(0, 3).join(',').trim();
+                }
+              }
+            } catch (e) {
+              console.warn('Nominatim geocode failed:', e);
+            }
+          }
+
+          const finalLocString = realAddress
+            ? `${realAddress} (GPS: ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E)`
+            : `লাইভ লোকেশন (GPS: ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E)`;
+
+          applyDetectedAddress(finalLocString, true);
+        },
+        (error) => {
+          console.warn('Geolocation permission or error:', error);
+          setIsLocating(false);
+          const currentTyped = isForProfileUpdate ? editAddress : custAddress;
+          if (!currentTyped || currentTyped.trim().length === 0) {
+            if (isForProfileUpdate) {
+              setEditAddress('বাসা / ফ্ল্যাট নম্বর, এলাকা, শহরের নাম লিখুন');
+            } else {
+              setCustAddress('বাসা / ফ্ল্যাট নম্বর, এলাকা, শহরের নাম লিখুন');
+            }
+          }
+          setErrorMsg('ব্রাউজারে জিপিএস পারমিশন ব্লক বা বন্ধ রয়েছে। অনুগ্রহ করে নিচে আপনার নিজের বাসা বা অফিসের সঠিক ঠিকানাটি টাইপ করুন।');
+          soundManager.playChime('click');
+        },
+        { timeout: 5000, enableHighAccuracy: true, maximumAge: 10000 }
+      );
+    } else {
+      setIsLocating(false);
+      setErrorMsg('আপনার ডিভাইসে জিপিএস সাপোর্ট করছে না। অনুগ্রহ করে নিচে ম্যানুয়ালি নিজের ঠিকানা লিখে দিন।');
+    }
+  };
+
+  // Profile Save Changes Handler for Logged In Customer/User
+  const handleSaveProfileUpdate = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editName.trim()) {
+      setErrorMsg('অনুগ্রহ করে আপনার নাম দিন');
+      return;
+    }
+    setIsLoading(true);
+    setErrorMsg('');
+    soundManager.playChime('click');
+
+    setTimeout(() => {
+      setIsLoading(false);
+      if (currentUser) {
+        const updatedUser: UserProfile = {
+          ...currentUser,
+          name: editName.trim(),
+          phone: editPhone.trim(),
+          email: editEmail.trim(),
+          address: editAddress.trim(),
+          avatar: editAvatar || currentUser.avatar,
+        };
+        onLogin(updatedUser);
+        setProfileSuccessMsg('আপনার প্রোফাইল তথ্য সফলভাবে আপডেট হয়েছে!');
+        setIsEditingProfile(false);
+        soundManager.playChime('order_placed');
+      }
+    }, 600);
+  };
+
+  // 1. Customer Login via OTP
+  const handleSendOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phone || phone.trim().length < 8) {
+      setErrorMsg('সঠিক ১০ ডিজিটের মোবাইল নম্বর প্রদান করুন');
+      return;
+    }
+    setErrorMsg('');
+    setIsLoading(true);
+    soundManager.playChime('click');
+
+    setTimeout(() => {
+      setIsLoading(false);
+      const generated = Math.floor(1000 + Math.random() * 9000).toString();
+      setSimulatedOtp(generated);
+      setOtpValue(generated);
+      setOtpStep('verify');
+    }, 600);
+  };
+
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (otpValue !== simulatedOtp) {
+      setErrorMsg('ভুল ওটিপি (OTP)! আবার চেষ্টা করুন');
+      return;
+    }
+    setIsLoading(true);
+    soundManager.playChime('click');
+
+    setTimeout(() => {
+      setIsLoading(false);
+      const newUser: UserProfile = {
+        id: `usr_${Date.now()}`,
+        name: countryCode === '+91' ? 'অর্ণব ব্যানার্জী (Arnab Banerjee)' : 'তানভীর আহমেদ (Tanvir)',
+        phone: `${countryCode} ${phone}`,
+        role: 'customer',
+        email: 'arnab.kolkata@example.com',
+        address: 'সল্টলেক সেক্টর ৫, কলকাতা',
+        avatar: AVATAR_PRESETS[0],
+        isLoggedIn: true,
+      };
+      onLogin(newUser);
+      soundManager.playChime('order_placed');
+      onClose();
+    }, 700);
+  };
+
+  // Customer Login via Email
+  const handleCustomerEmailLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!custEmail || !custPassword) {
+      setErrorMsg('ইমেইল ও পাসওয়ার্ড প্রদান করুন');
+      return;
+    }
+    setIsLoading(true);
+    soundManager.playChime('click');
+
+    setTimeout(() => {
+      setIsLoading(false);
+      const userName = custEmail.split('@')[0];
+      const newUser: UserProfile = {
+        id: `usr_em_${Date.now()}`,
+        name: userName.charAt(0).toUpperCase() + userName.slice(1),
+        phone: '+91 98300-11223',
+        role: 'customer',
+        email: custEmail,
+        address: 'সল্টলেক সেক্টর ৫, কলকাতা',
+        avatar: AVATAR_PRESETS[1],
+        isLoggedIn: true,
+      };
+      onLogin(newUser);
+      soundManager.playChime('order_placed');
+      onClose();
+    }, 700);
+  };
+
+  // Customer Signup
+  const handleCustomerSignup = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!custName || !phone) {
+      setErrorMsg('আপনার নাম এবং মোবাইল নম্বর প্রদান করুন');
+      return;
+    }
+    setIsLoading(true);
+    soundManager.playChime('click');
+
+    setTimeout(() => {
+      setIsLoading(false);
+      const newUser: UserProfile = {
+        id: `usr_signup_${Date.now()}`,
+        name: custName,
+        phone: `${countryCode} ${phone}`,
+        role: 'customer',
+        email: custEmail || `${custName.toLowerCase().replace(/\s+/g, '')}@example.com`,
+        address: custAddress || 'সল্টলেক সেক্টর ৫, কলকাতা',
+        avatar: AVATAR_PRESETS[2],
+        isLoggedIn: true,
+      };
+      onLogin(newUser);
+      soundManager.playChime('order_placed');
+      onClose();
+    }, 700);
+  };
+
+  // 2. Kitchen Staff Login
+  const handleKitchenAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!kitchenId || !chefPin) {
+      setErrorMsg('কিচেন আইডি এবং শেফ পিন কোড লিখুন');
+      return;
+    }
+    setIsLoading(true);
+    soundManager.playChime('click');
+
+    setTimeout(() => {
+      setIsLoading(false);
+      const newUser: UserProfile = {
+        id: `kit_${Date.now()}`,
+        name: chefName || 'শেফ তৌফিক আহমেদ',
+        phone: '+91 98300-99881',
+        role: 'kitchen',
+        restaurantId: kitchenId,
+        avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300',
+        isLoggedIn: true,
+      };
+      onLogin(newUser);
+      soundManager.playChime('kitchen_ready');
+      onClose();
+    }, 700);
+  };
+
+  // 3. Driver Rider Login
+  const handleRiderAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!riderPhone || !vehiclePlate) {
+      setErrorMsg('মোবাইল নম্বর ও গাড়ির নম্বর প্রদান করুন');
+      return;
+    }
+    setIsLoading(true);
+    soundManager.playChime('click');
+
+    setTimeout(() => {
+      setIsLoading(false);
+      const newUser: UserProfile = {
+        id: `drv_${Date.now()}`,
+        name: riderName || 'রূপম সেনগুপ্ত (Rupam Sengupta)',
+        phone: `+91 ${riderPhone}`,
+        role: 'driver',
+        vehicleNumber: vehiclePlate,
+        avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=300',
+        isLoggedIn: true,
+      };
+      onLogin(newUser);
+      soundManager.playChime('driver_pickup');
+      onClose();
+    }, 700);
+  };
+
+  // 4. Admin Login
+  const handleAdminAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminEmail || !adminKey) {
+      setErrorMsg('এডমিন ইমেইল ও মাস্টার পাসকোড প্রয়োজন');
+      return;
+    }
+    setIsLoading(true);
+    soundManager.playChime('click');
+
+    setTimeout(() => {
+      setIsLoading(false);
+      const newUser: UserProfile = {
+        id: `adm_${Date.now()}`,
+        name: adminName || 'সুপার এডমিন রানা ব্যানার্জী',
+        phone: '+91 98300-00000',
+        role: 'admin',
+        email: adminEmail,
+        avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=300',
+        isLoggedIn: true,
+      };
+      onLogin(newUser);
+      soundManager.playChime('order_placed');
+      onClose();
+    }, 700);
+  };
+
+  // Google Demo Login
+  const handleGoogleLogin = () => {
+    setIsLoading(true);
+    soundManager.playChime('click');
+    setTimeout(() => {
+      setIsLoading(false);
+      const newUser: UserProfile = {
+        id: `usr_google_${Date.now()}`,
+        name: 'সুব্রত দাস (Subrata Das)',
+        phone: '+91 98310-99482',
+        role: selectedAppRole,
+        email: 'subrata.das@gmail.com',
+        address: 'সল্টলেক সেক্টর ৫, কলকাতা',
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=300',
+        isLoggedIn: true,
+      };
+      onLogin(newUser);
+      soundManager.playChime('order_placed');
+      onClose();
+    }, 600);
+  };
+
+  const getRoleHeaderInfo = () => {
+    switch (selectedAppRole) {
+      case 'kitchen':
+        return {
+          title: 'কিচেন ডিসপ্লে অ্যাপ সাইন-ইন',
+          subtitle: 'শেফ ও কিচেন ম্যানেজারদের জন্য বিশেষ পোর্টাল',
+          icon: Utensils,
+          badge: '🍳 কিচেন অ্যাপ',
+          bgGradient: 'from-amber-600 via-orange-600 to-red-600',
+        };
+      case 'driver':
+        return {
+          title: 'রাইডার ও ডেলিভারি অ্যাপ লগইন',
+          subtitle: 'ডেলিভারি পার্টনার লাইভ জিপিএস ও ট্র্যাকিং',
+          icon: Bike,
+          badge: '🏍️ রাইডার অ্যাপ',
+          bgGradient: 'from-blue-600 via-indigo-600 to-amber-600',
+        };
+      case 'admin':
+        return {
+          title: 'এডমিন ও বিজনেস ম্যানেজমেন্ট',
+          subtitle: 'মেনু কন্ট্রোল, সেলস ও সিস্টেম কনফিগারেশন',
+          icon: Settings,
+          badge: '⚙️ এডমিন পোর্টাল',
+          bgGradient: 'from-emerald-600 via-teal-600 to-zinc-800',
+        };
+      default:
+        return {
+          title: 'কাস্টমার অ্যাপ লগইন / সাইন আপ',
+          subtitle: 'খাবার অর্ডার, প্রোফাইল আপডেট ও লাইভ জিপিএস লোকেশন',
+          icon: User,
+          badge: '🍔 কাস্টমার অ্যাপ',
+          bgGradient: 'from-orange-600 via-amber-600 to-orange-700',
+        };
+    }
+  };
+
+  const headerInfo = getRoleHeaderInfo();
+  const HeaderIcon = headerInfo.icon;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+      <div 
+        className="bg-zinc-900 border border-zinc-800 w-full max-w-lg rounded-2xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Top Header */}
+        <div className={`relative bg-gradient-to-r ${headerInfo.bgGradient} p-5 text-white transition-all`}>
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-1.5 rounded-full bg-black/20 hover:bg-black/40 text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center border border-white/30 shadow-inner shrink-0">
+              <HeaderIcon className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="inline-block px-2 py-0.5 rounded-full bg-black/20 border border-white/20 text-[10px] font-extrabold uppercase mb-1">
+                {headerInfo.badge}
+              </div>
+              <h2 className="text-lg sm:text-xl font-extrabold tracking-tight leading-snug">
+                {currentUser?.isLoggedIn ? `${currentUser.name} (প্রোফাইল)` : headerInfo.title}
+              </h2>
+              <p className="text-xs text-white/90 font-medium">
+                {currentUser?.isLoggedIn ? 'প্রোফাইল দেখা ও আপডেট করুন' : headerInfo.subtitle}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Dedicated App Role Selector Tabs */}
+        {!currentUser?.isLoggedIn && (
+          <div className="bg-zinc-950 p-2 border-b border-zinc-800">
+            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 px-1 flex items-center justify-between">
+              <span>কোন অ্যাপে সাইন আপ বা লগইন করতে চান?</span>
+              <span className="text-orange-400 font-bold">অ্যাপ সিলেক্ট করুন</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+              
+              <button
+                type="button"
+                onClick={() => { setSelectedAppRole('customer'); setErrorMsg(''); soundManager.playChime('click'); }}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 border ${
+                  selectedAppRole === 'customer'
+                    ? 'bg-orange-600 text-white border-orange-500 shadow-md ring-2 ring-orange-500/30'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-850'
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span className="text-[11px]">১. কাস্টমার</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setSelectedAppRole('kitchen'); setErrorMsg(''); soundManager.playChime('click'); }}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 border ${
+                  selectedAppRole === 'kitchen'
+                    ? 'bg-amber-600 text-white border-amber-500 shadow-md ring-2 ring-amber-500/30'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-850'
+                }`}
+              >
+                <Utensils className="w-4 h-4" />
+                <span className="text-[11px]">২. কিচেন</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setSelectedAppRole('driver'); setErrorMsg(''); soundManager.playChime('click'); }}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 border ${
+                  selectedAppRole === 'driver'
+                    ? 'bg-blue-600 text-white border-blue-500 shadow-md ring-2 ring-blue-500/30'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-850'
+                }`}
+              >
+                <Bike className="w-4 h-4" />
+                <span className="text-[11px]">৩. রাইডার</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setSelectedAppRole('admin'); setErrorMsg(''); soundManager.playChime('click'); }}
+                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 border ${
+                  selectedAppRole === 'admin'
+                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-500/30'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-850'
+                }`}
+              >
+                <Settings className="w-4 h-4" />
+                <span className="text-[11px]">৪. এডমিন</span>
+              </button>
+
+            </div>
+          </div>
+        )}
+
+        {/* Main Content Body */}
+        <div className="p-5 space-y-5 text-zinc-200">
+          
+          {/* ======================================================== */}
+          {/* LOGGED IN USER PROFILE & PROFILE UPDATE FORM             */}
+          {/* ======================================================== */}
+          {currentUser?.isLoggedIn ? (
+            <div className="space-y-5">
+              
+              {/* Success Banner */}
+              {profileSuccessMsg && (
+                <div className="p-3 bg-emerald-500/20 border border-emerald-500/40 rounded-xl text-xs text-emerald-300 flex items-center justify-between animate-fade-in">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="font-semibold">{profileSuccessMsg}</span>
+                  </div>
+                  <button onClick={() => setProfileSuccessMsg('')} className="text-zinc-400 hover:text-white">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* Profile Overview Card */}
+              <div className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3.5">
+                    <img 
+                      src={currentUser.avatar || AVATAR_PRESETS[0]} 
+                      alt={currentUser.name} 
+                      className="w-14 h-14 rounded-2xl object-cover ring-2 ring-orange-500/50 shadow-md"
+                    />
+                    <div>
+                      <h3 className="font-bold text-base text-white">{currentUser.name}</h3>
+                      <div className="flex items-center gap-1.5 text-xs mt-0.5">
+                        <span className="px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-400 font-bold border border-amber-500/30">
+                          {currentUser.role === 'customer' && '🍔 কাস্টমার অ্যাকাউন্ট'}
+                          {currentUser.role === 'kitchen' && '🍳 কিচেন শেফ অ্যাকাউন্ট'}
+                          {currentUser.role === 'driver' && '🏍️ ডেলিভারি রাইডার অ্যাকাউন্ট'}
+                          {currentUser.role === 'admin' && '⚙️ এডমিন প্যানেল অ্যাকাউন্ট'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingProfile(!isEditingProfile);
+                      soundManager.playChime('click');
+                    }}
+                    className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      isEditingProfile
+                        ? 'bg-orange-600 text-white border-orange-500 shadow'
+                        : 'bg-zinc-900 hover:bg-zinc-800 text-orange-400 border-orange-500/40'
+                    }`}
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    <span>{isEditingProfile ? 'বন্ধ করুন' : 'প্রোফাইল এডিট'}</span>
+                  </button>
+                </div>
+
+                {/* Info List */}
+                {!isEditingProfile && (
+                  <div className="pt-2 border-t border-zinc-800/80 space-y-2 text-xs text-zinc-300">
+                    <div className="flex items-start gap-2">
+                      <Smartphone className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">মোবাইল নম্বর:</span>
+                        <span className="font-medium text-white">{currentUser.phone || 'দেওয়া হয়নি'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <Mail className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">ইমেইল এড্রেস:</span>
+                        <span className="font-medium text-white">{currentUser.email || 'দেওয়া হয়নি'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2">
+                      <MapPin className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-zinc-500 block text-[10px]">ডেলিভারি ঠিকানা ও লাইভ জিপিএস:</span>
+                        <span className="font-medium text-amber-300 leading-snug">{currentUser.address || 'সল্টলেক সেক্টর ৫, কলকাতা'}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Editable Profile Form */}
+              {isEditingProfile && (
+                <form onSubmit={handleSaveProfileUpdate} className="bg-zinc-950/90 p-4 rounded-2xl border border-orange-500/30 space-y-3.5 animate-fade-in">
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                    <h4 className="text-xs font-bold text-orange-400 flex items-center gap-1.5">
+                      <Edit3 className="w-4 h-4" />
+                      <span>প্রোফাইল তথ্য আপডেট করুন</span>
+                    </h4>
+                    <span className="text-[10px] text-zinc-400">কাস্টমার প্রোফাইল</span>
+                  </div>
+
+                  {errorMsg && (
+                    <div className="p-2.5 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-center gap-2">
+                      <BadgeAlert className="w-4 h-4 shrink-0 text-rose-400" />
+                      <span>{errorMsg}</span>
+                    </div>
+                  )}
+
+                  {/* 1. Name */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">পূর্ণ নাম (Full Name)</label>
+                    <div className="relative">
+                      <User className="w-4 h-4 text-zinc-500 absolute left-3 top-3" />
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                        placeholder="আপনার নাম"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* 2. Phone */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">মোবাইল নম্বর (Phone)</label>
+                    <div className="relative">
+                      <Smartphone className="w-4 h-4 text-zinc-500 absolute left-3 top-3" />
+                      <input
+                        type="tel"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                        placeholder="+91 98301-88220"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* 3. Email */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">ইমেইল এড্রেস (Email)</label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 text-zinc-500 absolute left-3 top-3" />
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                        placeholder="yourname@example.com"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 4. Delivery Address & GPS Detect Button */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-medium text-zinc-400">ডেলিভারি ঠিকানা (Address)</label>
+                      <button
+                        type="button"
+                        onClick={() => handleDetectCurrentLocation(true)}
+                        disabled={isLocating}
+                        className="text-[11px] font-bold text-orange-400 hover:text-orange-300 flex items-center gap-1 bg-orange-500/10 px-2 py-0.5 rounded-lg border border-orange-500/30 transition-all cursor-pointer active:scale-95"
+                      >
+                        {isLocating ? (
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Navigation className="w-3 h-3 text-orange-400" />
+                        )}
+                        <span>বর্তমান GPS লোকেশন নিন</span>
+                      </button>
+                    </div>
+
+                    <div className="relative">
+                      <MapPin className="w-4 h-4 text-orange-400 absolute left-3 top-3" />
+                      <textarea
+                        rows={2}
+                        value={editAddress}
+                        onChange={(e) => setEditAddress(e.target.value)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+                        placeholder="আপনার ডেলিভারি এড্রেস লিখুন..."
+                      />
+                    </div>
+
+                    {/* 1-Click Quick Location Selector */}
+                    <div className="mt-2 space-y-1.5">
+                      <div className="flex items-center justify-between text-[11px] text-zinc-400 font-medium">
+                        <span>📍 ১-ক্লিকে লোকেশন টেস্ট & চয়েস করুন:</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {REGIONAL_PRESET_LOCATIONS.map((preset, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setEditAddress(preset.address);
+                              setLocationSuccessMsg(`ঠিকানা সেট করা হয়েছে: ${preset.name}`);
+                              soundManager.playChime('click');
+                            }}
+                            className="px-2.5 py-1 bg-zinc-900 hover:bg-orange-600/30 hover:border-orange-500/60 border border-zinc-800 text-[11px] text-zinc-300 hover:text-white rounded-lg transition-all cursor-pointer active:scale-95"
+                          >
+                            {preset.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {locationSuccessMsg && (
+                      <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1 mt-1.5 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                        <Check className="w-3.5 h-3.5 shrink-0" />
+                        <span>{locationSuccessMsg}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 5. Avatar Picker */}
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1.5">প্রোফাইল পিকচার সিলেক্ট করুন</label>
+                    <div className="flex items-center gap-2">
+                      {AVATAR_PRESETS.map((avatarUrl, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setEditAvatar(avatarUrl)}
+                          className={`relative w-10 h-10 rounded-xl overflow-hidden border-2 transition-all ${
+                            editAvatar === avatarUrl ? 'border-orange-500 ring-2 ring-orange-500/40 scale-105' : 'border-zinc-800 opacity-60 hover:opacity-100'
+                          }`}
+                        >
+                          <img src={avatarUrl} alt="Preset Avatar" className="w-full h-full object-cover" />
+                          {editAvatar === avatarUrl && (
+                            <div className="absolute inset-0 bg-orange-600/30 flex items-center justify-center">
+                              <Check className="w-4 h-4 text-white font-bold" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Save Profile Button */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="flex-1 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {isLoading ? (
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>পরিবর্তন সেভ করুন</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Logout Button */}
+              <button
+                onClick={() => {
+                  onLogout();
+                  soundManager.playChime('click');
+                  onClose();
+                }}
+                className="w-full py-3 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 font-bold text-sm flex items-center justify-center gap-2 transition-all"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>লগআউট করুন</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Error Alert */}
+              {errorMsg && (
+                <div className="p-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-xs text-rose-300 flex items-center gap-2">
+                  <BadgeAlert className="w-4 h-4 shrink-0 text-rose-400" />
+                  <span>{errorMsg}</span>
+                </div>
+              )}
+
+              {/* Login vs Signup Switcher */}
+              <div className="flex rounded-xl bg-zinc-950 p-1 border border-zinc-800 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => { setAuthAction('login'); setErrorMsg(''); soundManager.playChime('click'); }}
+                  className={`flex-1 py-2 rounded-lg transition-all ${
+                    authAction === 'login' ? 'bg-orange-600 text-white font-bold shadow' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  লগইন করুন
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setAuthAction('signup'); setErrorMsg(''); soundManager.playChime('click'); }}
+                  className={`flex-1 py-2 rounded-lg transition-all ${
+                    authAction === 'signup' ? 'bg-orange-600 text-white font-bold shadow' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  নতুন সাইন আপ (Signup)
+                </button>
+              </div>
+
+              {/* ======================================================== */}
+              {/* 1. CUSTOMER APP AUTH (LOGIN & SIGNUP)                    */}
+              {/* ======================================================== */}
+              {selectedAppRole === 'customer' && (
+                <div className="space-y-4">
+                  {authAction === 'login' ? (
+                    <>
+                      {/* Cust login method selection */}
+                      <div className="flex gap-2 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setCustLoginMethod('otp')}
+                          className={`flex-1 py-1.5 rounded-lg border transition-all flex items-center justify-center gap-1 ${
+                            custLoginMethod === 'otp'
+                              ? 'bg-zinc-800 border-orange-500 text-orange-400 font-bold'
+                              : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                          }`}
+                        >
+                          <Smartphone className="w-3.5 h-3.5" />
+                          <span>মোবাইল ওটিপি</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCustLoginMethod('email')}
+                          className={`flex-1 py-1.5 rounded-lg border transition-all flex items-center justify-center gap-1 ${
+                            custLoginMethod === 'email'
+                              ? 'bg-zinc-800 border-orange-500 text-orange-400 font-bold'
+                              : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                          }`}
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                          <span>ইমেইল লগইন</span>
+                        </button>
+                      </div>
+
+                      {custLoginMethod === 'otp' ? (
+                        otpStep === 'phone' ? (
+                          <form onSubmit={handleSendOtp} className="space-y-4">
+                            <div>
+                              <label className="block text-xs font-medium text-zinc-400 mb-1">
+                                কাস্টমার মোবাইল নাম্বার
+                              </label>
+                              <div className="flex gap-2">
+                                <select
+                                  value={countryCode}
+                                  onChange={(e) => setCountryCode(e.target.value)}
+                                  className="bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-2.5 text-xs text-orange-400 font-bold focus:outline-none"
+                                >
+                                  <option value="+91">🇮🇳 +91</option>
+                                  <option value="+880">🇧🇩 +880</option>
+                                </select>
+                                <input
+                                  type="tel"
+                                  value={phone}
+                                  onChange={(e) => setPhone(e.target.value)}
+                                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2.5 text-sm text-white focus:border-orange-500 focus:outline-none"
+                                  required
+                                />
+                              </div>
+                            </div>
+
+                            <button
+                              type="submit"
+                              disabled={isLoading}
+                              className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                            >
+                              {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <span>ওটিপি (OTP) পাঠান</span>}
+                            </button>
+                          </form>
+                        ) : (
+                          <form onSubmit={handleVerifyOtp} className="space-y-4">
+                            <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl text-xs text-amber-300">
+                              <span>টেস্ট ওটিপি কোড: </span>
+                              <strong className="text-orange-400 font-mono tracking-widest">{simulatedOtp}</strong>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-medium text-zinc-400 mb-1">৪-ডিজিট OTP দিন</label>
+                              <input
+                                type="text"
+                                maxLength={4}
+                                value={otpValue}
+                                onChange={(e) => setOtpValue(e.target.value)}
+                                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-center text-xl font-mono text-orange-400 font-extrabold focus:outline-none"
+                                required
+                              />
+                            </div>
+
+                            <button
+                              type="submit"
+                              disabled={isLoading}
+                              className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm shadow-md transition-all"
+                            >
+                              {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <span>ভেরিফাই ও লগইন</span>}
+                            </button>
+                          </form>
+                        )
+                      ) : (
+                        <form onSubmit={handleCustomerEmailLogin} className="space-y-3.5">
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-400 mb-1">ইমেইল এড্রেস</label>
+                            <input
+                              type="email"
+                              value={custEmail}
+                              onChange={(e) => setCustEmail(e.target.value)}
+                              placeholder="customer@example.com"
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                              required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-zinc-400 mb-1">পাসওয়ার্ড</label>
+                            <input
+                              type="password"
+                              value={custPassword}
+                              onChange={(e) => setCustPassword(e.target.value)}
+                              placeholder="••••••••"
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                              required
+                            />
+                          </div>
+
+                          <button
+                            type="submit"
+                            disabled={isLoading}
+                            className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm transition-all"
+                          >
+                            {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <span>কাস্টমার লগইন</span>}
+                          </button>
+                        </form>
+                      )}
+                    </>
+                  ) : (
+                    /* CUSTOMER SIGNUP FORM WITH NAME, MOBILE, ADDRESS, CURRENT LOCATION */
+                    <form onSubmit={handleCustomerSignup} className="space-y-3.5">
+                      <div className="bg-orange-500/10 border border-orange-500/30 p-2.5 rounded-xl text-xs text-orange-300">
+                        <span className="font-bold">কাস্টমার নতুন রেজিস্ট্রেশন:</span> নাম, মোবাইল, ঠিকানা ও লাইভ লোকেশন দিয়ে অ্যাকাউন্ট তৈরি করুন।
+                      </div>
+
+                      {/* 1. Name */}
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">আপনার নাম (Full Name)</label>
+                        <div className="relative">
+                          <User className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
+                          <input
+                            type="text"
+                            value={custName}
+                            onChange={(e) => setCustName(e.target.value)}
+                            placeholder="অর্ণব ব্যানার্জী (Arnab Banerjee)"
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      {/* 2. Mobile */}
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">মোবাইল নাম্বার (Mobile)</label>
+                        <div className="flex gap-2">
+                          <select
+                            value={countryCode}
+                            onChange={(e) => setCountryCode(e.target.value)}
+                            className="bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 text-xs text-orange-400 font-bold focus:outline-none"
+                          >
+                            <option value="+91">🇮🇳 +91</option>
+                            <option value="+880">🇧🇩 +880</option>
+                          </select>
+                          <div className="relative w-full">
+                            <Smartphone className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
+                            <input
+                              type="tel"
+                              value={phone}
+                              onChange={(e) => setPhone(e.target.value)}
+                              placeholder="9830188220"
+                              className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                              required
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 3. Email */}
+                      <div>
+                        <label className="block text-xs font-medium text-zinc-400 mb-1">ইমেইল (Email - Optional)</label>
+                        <div className="relative">
+                          <Mail className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
+                          <input
+                            type="email"
+                            value={custEmail}
+                            onChange={(e) => setCustEmail(e.target.value)}
+                            placeholder="arnab.kolkata@example.com"
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* 4. Delivery Address & Current Location Button */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-xs font-medium text-zinc-400">ডেলিভারি ঠিকানা (Address)</label>
+                          <button
+                            type="button"
+                            onClick={() => handleDetectCurrentLocation(false)}
+                            disabled={isLocating}
+                            className="text-[11px] font-bold text-orange-400 hover:text-orange-300 flex items-center gap-1 bg-orange-500/10 px-2.5 py-1 rounded-lg border border-orange-500/30 transition-all shadow-sm"
+                          >
+                            {isLocating ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Navigation className="w-3.5 h-3.5 text-orange-400 animate-pulse" />
+                            )}
+                            <span>বর্তমান GPS লোকেশন অটো-সেট</span>
+                          </button>
+                        </div>
+
+                        <div className="relative">
+                          <MapPin className="w-4 h-4 text-orange-400 absolute left-3 top-3" />
+                          <textarea
+                            rows={2}
+                            value={custAddress}
+                            onChange={(e) => setCustAddress(e.target.value)}
+                            placeholder="সল্টলেক সেক্টর ৫, কলকাতা"
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
+                            required
+                          />
+                        </div>
+
+                        {/* 1-Click Quick Location Selector */}
+                        <div className="mt-2 space-y-1.5">
+                          <div className="flex items-center justify-between text-[11px] text-zinc-400 font-medium">
+                            <span>📍 ১-ক্লিকে লোকেশন টেস্ট & চয়েস করুন:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {REGIONAL_PRESET_LOCATIONS.map((preset, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => {
+                                  setCustAddress(preset.address);
+                                  setLocationSuccessMsg(`ঠিকানা সেট করা হয়েছে: ${preset.name}`);
+                                  soundManager.playChime('click');
+                                }}
+                                className="px-2.5 py-1 bg-zinc-900 hover:bg-orange-600/30 hover:border-orange-500/60 border border-zinc-800 text-[11px] text-zinc-300 hover:text-white rounded-lg transition-all cursor-pointer active:scale-95"
+                              >
+                                {preset.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {locationSuccessMsg && (
+                          <div className="text-[11px] text-emerald-400 font-bold flex items-center gap-1 mt-1.5 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                            <Check className="w-3.5 h-3.5 shrink-0" />
+                            <span>{locationSuccessMsg}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isLoading}
+                        className="w-full py-3 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                      >
+                        {isLoading ? (
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <UserCheck className="w-4 h-4" />
+                            <span>কাস্টমার অ্যাকাউন্ট তৈরি করুন</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {/* ======================================================== */}
+              {/* 2. KITCHEN STAFF APP AUTH                                */}
+              {/* ======================================================== */}
+              {selectedAppRole === 'kitchen' && (
+                <form onSubmit={handleKitchenAuth} className="space-y-3.5">
+                  <div className="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl text-xs text-amber-300 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <Utensils className="w-4 h-4 text-amber-400" />
+                      <span>কিচেন ডিসপ্লে অ্যাপ সাইন-ইন:</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-300">
+                      শেফ এবং কিচেন টিম সদস্যরা কিচেন আইডি ও পিন দিয়ে সরাসরি অর্ডারের লাইভ প্রস্তুতি শুরু করতে পারেন।
+                    </p>
+                  </div>
+
+                  {authAction === 'signup' && (
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-400 mb-1">রেস্টুরেন্ট / কিচেন নাম</label>
+                      <input
+                        type="text"
+                        value={kitchenName}
+                        onChange={(e) => setKitchenName(e.target.value)}
+                        placeholder="পার্ক স্ট্রিট সেন্ট্রাল কিচেন"
+                        className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+                        required
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">হেড শেফ / কিচেন স্টাভের নাম</label>
+                    <input
+                      type="text"
+                      value={chefName}
+                      onChange={(e) => setChefName(e.target.value)}
+                      placeholder="শেফ তৌফিক আহমেদ"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">কিচেন স্টেশন আইডি</label>
+                    <input
+                      type="text"
+                      value={kitchenId}
+                      onChange={(e) => setKitchenId(e.target.value)}
+                      placeholder="KITCHEN-KOL-01"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">শেফ সিকিউরিটি পিন (Passcode)</label>
+                    <input
+                      type="password"
+                      maxLength={6}
+                      value={chefPin}
+                      onChange={(e) => setChefPin(e.target.value)}
+                      placeholder="8899"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-center text-lg font-mono text-amber-400 font-bold focus:outline-none focus:border-amber-500"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <span>{authAction === 'signup' ? 'নতুন কিচেন রেজিস্ট্রেশন' : 'কিচেন অ্যাপে প্রবেশ করুন'}</span>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* ======================================================== */}
+              {/* 3. RIDER DELIVERY APP AUTH                               */}
+              {/* ======================================================== */}
+              {selectedAppRole === 'driver' && (
+                <form onSubmit={handleRiderAuth} className="space-y-3.5">
+                  <div className="bg-blue-500/10 border border-blue-500/30 p-3 rounded-xl text-xs text-blue-300 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <Bike className="w-4 h-4 text-blue-400" />
+                      <span>ডেলিভারি পার্টনার রাইডার অ্যাপ:</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-300">
+                      রাইডারদের লাইভ জিপিএস রুট, পিকআপ রিকোয়েস্ট এবং কাস্টমার চ্যাটের জন্য ডেলিভারি আইডি দিয়ে লগইন করুন।
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">রাইডারের নাম</label>
+                    <input
+                      type="text"
+                      value={riderName}
+                      onChange={(e) => setRiderName(e.target.value)}
+                      placeholder="রূপম সেনগুপ্ত"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">রাইডার মোবাইল নম্বর</label>
+                    <input
+                      type="tel"
+                      value={riderPhone}
+                      onChange={(e) => setRiderPhone(e.target.value)}
+                      placeholder="9831099882"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">গাড়ির নম্বর (Vehicle Registration Plate)</label>
+                    <input
+                      type="text"
+                      value={vehiclePlate}
+                      onChange={(e) => setVehiclePlate(e.target.value)}
+                      placeholder="WB-02-AK-4920"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-blue-400 font-mono font-bold focus:outline-none focus:border-blue-500"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <span>{authAction === 'signup' ? 'নতুন রাইডার অনবোর্ডিং' : 'রাইডার অ্যাপে সাইন ইন'}</span>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* ======================================================== */}
+              {/* 4. ADMIN APP AUTH                                        */}
+              {/* ======================================================== */}
+              {selectedAppRole === 'admin' && (
+                <form onSubmit={handleAdminAuth} className="space-y-3.5">
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 p-3 rounded-xl text-xs text-emerald-300 space-y-1">
+                    <div className="font-bold flex items-center gap-1.5">
+                      <Settings className="w-4 h-4 text-emerald-400" />
+                      <span>এডমিন ও ম্যানেজমেন্ট প্যানেল:</span>
+                    </div>
+                    <p className="text-[11px] text-zinc-300">
+                      মেনু আইটেম এডিটিং, প্রাইসিং, ড্রাইভার এসাইন এবং সিস্টেম ওভারভিউয়ের জন্য এডমিন কী প্রদান করুন।
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">এডমিনের নাম</label>
+                    <input
+                      type="text"
+                      value={adminName}
+                      onChange={(e) => setAdminName(e.target.value)}
+                      placeholder="সুপার এডমিন রানা ব্যানার্জী"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">এডমিন কর্পোরেট ইমেইল</label>
+                    <input
+                      type="email"
+                      value={adminEmail}
+                      onChange={(e) => setAdminEmail(e.target.value)}
+                      placeholder="admin.fastbite@foodexpress.in"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">এডমিন মাস্টার সিকিউরিটি পিন / Key</label>
+                    <input
+                      type="password"
+                      value={adminKey}
+                      onChange={(e) => setAdminKey(e.target.value)}
+                      placeholder="ADMIN-2026-KEY"
+                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    {isLoading ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <span>এডমিন প্যানেলে প্রবেশ করুন</span>
+                    )}
+                  </button>
+                </form>
+              )}
+
+              {/* Social Login Divider */}
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-zinc-800" />
+                </div>
+                <div className="relative flex justify-center text-[10px] uppercase">
+                  <span className="bg-zinc-900 px-2 text-zinc-500">অথবা দ্রুত ডেমো লগইন</span>
+                </div>
+              </div>
+
+              {/* Google Button */}
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                className="w-full py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-all"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.2 9 5 12 5z" />
+                  <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z" />
+                  <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.4 0 15.3s.7 5.6 1.9 8l3.7-2.9c-.3-.7-.5-1.5-.5-2.3z" />
+                  <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.2-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z" />
+                </svg>
+                <span>গুগল অ্যাকাউন্ট দিয়ে ১-ক্লিকে লগইন</span>
+              </button>
+            </>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+};

@@ -1,0 +1,25 @@
+{
+  "short_name": "KhabarGhor",
+  "name": "খাবারঘর - অনলাইন ফুড সার্ভিস & ডেলিভারি",
+  "description": "অনলাইন ফুড ডেলিভারি সার্ভিস - লাইভ জিপিএস ট্র্যাকিং ও দ্রুত ক্যাশ অন ডেলিভারি",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#09090b",
+  "theme_color": "#f97316",
+  "display": "standalone",
+  "orientation": "portrait",
+  "categories": ["food", "shopping", "lifestyle"]
+}
