@@ -95,7 +95,7 @@ jobs:
             cat << 'VAR_EOF' > variables.gradle
           ext {
               minSdkVersion = 22
-              compileSdkVersion = 35
+              compileSdkVersion = 36
               targetSdkVersion = 35
               androidxActivityVersion = '1.8.0'
               androidxAppCompatVersion = '1.6.1'
@@ -110,10 +110,13 @@ jobs:
               cordovaAndroidVersion = '10.1.1'
           }
           VAR_EOF
-          else
-            sed -i 's/compileSdkVersion = .*/compileSdkVersion = 35/' variables.gradle
-            sed -i 's/targetSdkVersion = .*/targetSdkVersion = 35/' variables.gradle
           fi
+          
+          echo "Updating compileSdkVersion and compileSdk to 36 in all Gradle configuration files..."
+          find . -name "*.gradle" -exec sed -i 's/compileSdkVersion = .*/compileSdkVersion = 36/g' {} +
+          find . -name "*.gradle" -exec sed -i 's/compileSdkVersion 35/compileSdkVersion 36/g' {} +
+          find . -name "*.gradle" -exec sed -i 's/compileSdk 35/compileSdk 36/g' {} +
+          find . -name "*.gradle" -exec sed -i 's/compileSdk = .*/compileSdk = 36/g' {} +
           
           if ! grep -q "resolutionStrategy" build.gradle; then
             echo "Adding Kotlin stdlib resolution strategy to build.gradle..."
