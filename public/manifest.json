@@ -1,7 +1,7 @@
 {
-  "short_name": "KhabarGhor",
-  "name": "খাবারঘর - অনলাইন ফুড সার্ভিস & ডেলিভারি",
-  "description": "অনলাইন ফুড ডেলিভারি সার্ভিস - লাইভ জিপিএস ট্র্যাকিং ও দ্রুত ক্যাশ অন ডেলিভারি",
+  "short_name": "FastBite",
+  "name": "FastBite - Online Food Service & Delivery",
+  "description": "Premium food delivery service with live GPS tracking",
   "icons": [
     {
       "src": "/icon-192.png",
