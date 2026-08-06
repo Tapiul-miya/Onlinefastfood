@@ -1,6 +1,6 @@
 {
   "name": "FastBite Delivery",
-  "description": "Fast food delivery app for India & Bangladesh with real-time GPS tracking, Bengali localization, BDT/INR currency support, Customer ordering, Delivery partner dispatch, and Admin control panel.",
+  "description": "FastBite is a multi-role food delivery platform for India with real-time GPS tracking and dedicated versions for Customers, Kitchens, Riders, and Admins. Built for the Indian market with +91 support and separate Android APK builds for each role.",
   "requestFramePermissions": ["camera", "microphone", "geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

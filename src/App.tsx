@@ -32,54 +32,54 @@ import {
 
 const INITIAL_ROLE_PROFILES: Record<UserRole, UserProfile> = {
   customer: {
-    id: 'usr_customer_01',
-    name: 'অর্ণব ব্যানার্জী (Arnab Banerjee)',
-    phone: '+91 98301-88220',
+    id: '',
+    name: '',
+    phone: '',
     role: 'customer',
-    email: 'arnab.kolkata@example.com',
-    address: 'সল্টলেক সেক্টর ৫, ইলেকট্রনিক্স কমপ্লেক্স, কলকাতা (Salt Lake Sector V, Kolkata)',
+    email: '',
+    address: '',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
-    isLoggedIn: true,
+    isLoggedIn: false,
   },
   driver: {
-    id: 'usr_driver_01',
-    name: 'রুপম ব্যানার্জী (Rider Rupam Banerjee)',
-    phone: '+91 98310-99482',
+    id: '',
+    name: '',
+    phone: '',
     role: 'driver',
-    email: 'rider.rupam@fastbite.in',
-    address: 'পার্ক স্ট্রিট সেন্ট্রাল হাব, কলকাতা',
+    email: '',
+    address: '',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
-    vehicleNumber: 'TVS Apache 160 (WB-02-AK-4819)',
-    employeeId: 'DRV-KOL-9948',
-    assignedHub: 'পার্ক স্ট্রিট সেন্ট্রাল হাব',
-    rating: 4.95,
-    tripsCompleted: 1840,
-    isDutyActive: true,
-    isLoggedIn: true,
+    vehicleNumber: '',
+    employeeId: '',
+    assignedHub: '',
+    rating: 5.0,
+    tripsCompleted: 0,
+    isDutyActive: false,
+    isLoggedIn: false,
   },
   kitchen: {
-    id: 'usr_kitchen_01',
-    name: 'শেফ তৌফিক আহমেদ (Chef Toufiq Ahmed)',
-    phone: '+91 98300-11223',
+    id: '',
+    name: '',
+    phone: '',
     role: 'kitchen',
-    email: 'kitchen.parkst@fastbite.in',
-    restaurantId: 'ফাস্টবাইট এক্সপ্রেস কলকাতা (Park Street HQ)',
-    employeeId: 'KITCHEN-KOL-01',
-    address: '৭৭ পার্ক স্ট্রিট, কলকাতা ৭০০০১৬',
+    email: '',
+    restaurantId: '',
+    employeeId: '',
+    address: '',
     avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300',
-    isLoggedIn: true,
+    isLoggedIn: false,
   },
   admin: {
-    id: 'usr_admin_01',
-    name: 'সুপার এডমিন রানা ব্যানার্জী (Super Admin Rana)',
-    phone: '+91 98300-00100',
+    id: '',
+    name: '',
+    phone: '',
     role: 'admin',
-    email: 'admin.fastbite@foodexpress.in',
-    employeeId: 'ADMIN-SYS-2026',
-    address: 'হেড অফিস, পার্ক স্ট্রিট মোড়, কলকাতা',
+    email: '',
+    employeeId: '',
+    address: '',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300',
-    securityKey: 'ADMIN-2026-KEY',
-    isLoggedIn: true,
+    securityKey: '',
+    isLoggedIn: false,
   },
 };
 
@@ -399,7 +399,7 @@ export default function App() {
       customer: [initPush],
       admin: [initPush],
       kitchen: [initPush],
-      courier: [initPush]
+      driver: [initPush]
     };
   });
 
@@ -411,7 +411,7 @@ export default function App() {
     } catch {}
   }, [pushNotificationsDict]);
 
-  const triggerPushNotification = (title: string, body: string, targetRoles: UserRole[] = ['customer', 'admin', 'kitchen', 'courier']) => {
+  const triggerPushNotification = (title: string, body: string, targetRoles: UserRole[] = ['customer', 'admin', 'kitchen', 'driver']) => {
     const newPush = {
       id: `push_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       title,
@@ -521,7 +521,7 @@ export default function App() {
               if (current && current.id === orderData.id && current.status !== orderData.status) {
                 let targets: UserRole[] = ['customer', 'admin'];
                 if (orderData.status === 'confirmed' || orderData.status === 'preparing') targets.push('kitchen');
-                if (orderData.status === 'ready_for_pickup' || orderData.status === 'on_the_way' || orderData.status === 'delivered') targets.push('courier');
+                if (orderData.status === 'ready_for_pickup' || orderData.status === 'on_the_way' || orderData.status === 'delivered') targets.push('driver');
 
                 triggerPushNotification(
                   `📦 অর্ডার আপডেট (#${orderData.orderNumber})`,
@@ -647,7 +647,7 @@ export default function App() {
     triggerPushNotification(
       `🛎️ পার্টনার অ্যালার্ট: নতুন অর্ডার #${demoOrder.orderNumber}`,
       `রেস্তোরাঁ কিচেন ও রাইডারের কাছে নতুন অর্ডার সফলভাবে পাঠানো হয়েছে।`,
-      ['admin', 'kitchen', 'courier']
+      ['admin', 'kitchen', 'driver']
     );
   };
 
@@ -835,7 +835,7 @@ export default function App() {
     triggerPushNotification(
       `🛎️ রেস্তোরাঁ ও পার্টনার অ্যালার্ট: নতুন অর্ডার #${newOrder.orderNumber}`,
       `কিচেনে নতুন অর্ডার এসেছে (${newOrder.items.length}টি আইটেম)। গ্রাহক: ${newOrder.customerName}।`,
-      ['admin', 'kitchen', 'courier']
+      ['admin', 'kitchen', 'driver']
     );
 
     // Trigger Order Success Modal & Sound

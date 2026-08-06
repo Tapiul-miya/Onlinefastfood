@@ -44,7 +44,7 @@ jobs:
           npm install @capacitor/core @capacitor/android
           if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
             echo "Initializing Capacitor..."
-            npx cap init "KhabarGhor" "com.khabarghor.app" --web-dir dist
+            npx cap init "FastBite" "com.fastbite.app" --web-dir dist
           fi
           npx cap add android || true
           echo "Removing stale assets before sync..."
@@ -54,13 +54,27 @@ jobs:
 
           MANIFEST_FILE="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST_FILE" ]; then
-            echo "Injecting Android permissions into AndroidManifest.xml..."
+            echo "Injecting Android permissions and Flavor Label into AndroidManifest.xml..."
+            # Use manifest placeholder for app name
+            sed -i 's/android:label="@string\/app_name"/android:label="${appName}"/g' "$MANIFEST_FILE"
+            
             for PERM in "INTERNET" "ACCESS_NETWORK_STATE" "ACCESS_FINE_LOCATION" "ACCESS_COARSE_LOCATION" "CALL_PHONE" "CAMERA" "VIBRATE" "POST_NOTIFICATIONS" "READ_EXTERNAL_STORAGE" "READ_MEDIA_IMAGES"; do
               if ! grep -q "android.permission.$PERM" "$MANIFEST_FILE"; then
                 sed -i "/<application/i \    <uses-permission android:name=\"android.permission.$PERM\" \/>" "$MANIFEST_FILE"
               fi
             done
             echo "Permissions injected successfully!"
+          fi
+
+          GRADLE_FILE="android/app/build.gradle"
+          if [ -f "$GRADLE_FILE" ]; then
+            echo "Injecting Product Flavors into $GRADLE_FILE..."
+            # Inject flavorDimensions
+            sed -i '/defaultConfig {/i \    flavorDimensions "default"' "$GRADLE_FILE"
+            
+            # Inject productFlavors block before buildTypes
+            FLAVORS_BLOCK="    productFlavors {\n        customer {\n            dimension \"default\"\n            applicationIdSuffix \".customer\"\n            manifestPlaceholders = [appName: \"FastBite Customer\"]\n        }\n        kitchen {\n            dimension \"default\"\n            applicationIdSuffix \".kitchen\"\n            manifestPlaceholders = [appName: \"FastBite Kitchen\"]\n        }\n        rider {\n            dimension \"default\"\n            applicationIdSuffix \".rider\"\n            manifestPlaceholders = [appName: \"FastBite Rider\"]\n        }\n        admin {\n            dimension \"default\"\n            applicationIdSuffix \".admin\"\n            manifestPlaceholders = [appName: \"FastBite Admin\"]\n        }\n    }"
+            sed -i "/buildTypes {/i $FLAVORS_BLOCK" "$GRADLE_FILE"
           fi
 
       - name: Build Android APK with Gradle
@@ -155,10 +169,11 @@ jobs:
           gradle wrapper --gradle-version 8.13
           
           chmod +x gradlew
+          # assembleDebug will now build all flavors: customer, kitchen, rider, admin
           ./gradlew clean assembleDebug --stacktrace
 
-      - name: Upload APK Artifact
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Android-Debug-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: FastBite-All-Flavors-APKs
+          path: android/app/build/outputs/apk/*/debug/*.apk

@@ -5,7 +5,7 @@ import {
   KeyRound, FileText, BadgeAlert, Building2, MapPin, Navigation,
   Edit3, Save, RefreshCw, Compass, UserCheck, Home, Check, Globe, Camera
 } from 'lucide-react';
-import { UserProfile, UserRole } from '../types';
+import { UserProfile, UserRole, Order } from '../types';
 
 import { soundManager } from '../utils/audio';
 import { fetchCurrentGpsLocation } from '../utils/geolocation';
