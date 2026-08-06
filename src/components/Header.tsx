@@ -7,8 +7,6 @@ import { soundManager } from '../utils/audio';
 interface HeaderProps {
   role: UserRole;
   onSelectRole: (role: UserRole) => void;
-  cartCount: number;
-  onOpenCart: () => void;
   activeOrder: Order | null;
   onOpenTracking: () => void;
   soundEnabled: boolean;
@@ -24,14 +22,11 @@ interface HeaderProps {
   onTogglePush: () => void;
   pushNotifications: Array<{ id: string; title: string; body: string; time: string; read: boolean }>;
   onClearPush: () => void;
-  onTestPush: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   role,
   onSelectRole,
-  cartCount,
-  onOpenCart,
   activeOrder,
   onOpenTracking,
   soundEnabled,
@@ -47,7 +42,6 @@ export const Header: React.FC<HeaderProps> = ({
   onTogglePush,
   pushNotifications,
   onClearPush,
-  onTestPush,
 }) => {
   const isTrackingActive = activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled';
   const t = TRANSLATIONS[lang];
@@ -169,13 +163,7 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     </div>
 
-                    <div className="p-3 bg-zinc-900/90 border-b border-zinc-800/80 flex items-center justify-between gap-2">
-                      <button
-                        onClick={onTestPush}
-                        className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
-                      >
-                        <span>🧪 টেস্ট পুশ নোটিফিকেশন পাঠান</span>
-                      </button>
+                    <div className="p-3 bg-zinc-900/90 border-b border-zinc-800/80 flex items-center justify-end gap-2">
                       {pushNotifications.length > 0 && (
                         <button
                           onClick={onClearPush}
@@ -247,24 +235,7 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
 
-            {/* Cart Button */}
-            {role === 'customer' && (
-              <button
-                id="btn-open-cart"
-                onClick={onOpenCart}
-                className="relative flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-xs sm:text-sm shadow-lg transition-all active:scale-95 shrink-0 ring-2 ring-orange-500/40"
-              >
-                <ShoppingBag className="w-4 h-4 text-white shrink-0" />
-                <span className="inline">{t.header.cart}</span>
-                {cartCount > 0 ? (
-                  <span className="bg-white text-orange-600 text-xs font-black w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-scale-up">
-                    {cartCount}
-                  </span>
-                ) : (
-                  <span className="text-[10px] opacity-80 font-normal hidden xs:inline">(০)</span>
-                )}
-              </button>
-            )}
+            {/* Removed Cart Button */}
 
           </div>
 

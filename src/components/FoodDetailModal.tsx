@@ -7,12 +7,6 @@ import { soundManager } from '../utils/audio';
 interface FoodDetailModalProps {
   item: MenuItem | null;
   onClose: () => void;
-  onAddToCart: (
-    item: MenuItem,
-    quantity: number,
-    selectedOptions: SelectedOption[],
-    specialInstructions: string
-  ) => void;
   lang: Language;
   currency: Currency;
 }
@@ -20,7 +14,6 @@ interface FoodDetailModalProps {
 export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
   item,
   onClose,
-  onAddToCart,
   lang,
   currency,
 }) => {
@@ -90,12 +83,6 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
   };
 
   const { totalPrice, selectedList } = calculateTotalPrice();
-
-  const handleConfirm = () => {
-    soundManager.playChime('click');
-    onAddToCart(item, quantity, selectedList, specialInstructions);
-    onClose();
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
@@ -266,18 +253,6 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
               <Plus className="w-4 h-4" />
             </button>
           </div>
-
-          {/* Add to Cart Submit Button */}
-          <button
-            id="btn-confirm-add-cart"
-            type="button"
-            onClick={handleConfirm}
-            className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-orange-500/20 flex items-center justify-between transition-all active:scale-[0.99]"
-          >
-            <span>কার্টে যোগ করুন</span>
-            <span className="font-extrabold text-base">{formatPrice(totalPrice, currency)}</span>
-          </button>
-
         </div>
       </div>
     </div>

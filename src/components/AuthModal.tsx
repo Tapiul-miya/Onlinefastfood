@@ -3,7 +3,7 @@ import {
   X, Smartphone, Mail, Lock, User, CheckCircle2, ArrowRight, 
   ShieldCheck, Sparkles, LogOut, Utensils, Bike, Settings,
   KeyRound, FileText, BadgeAlert, Building2, MapPin, Navigation,
-  Edit3, Save, RefreshCw, Compass, UserCheck, Home, Check, Globe
+  Edit3, Save, RefreshCw, Compass, UserCheck, Home, Check, Globe, Camera
 } from 'lucide-react';
 import { UserProfile, UserRole } from '../types';
 
@@ -22,6 +22,8 @@ interface AuthModalProps {
   onSelectLang?: (lang: Language) => void;
   currency?: Currency;
   onSelectCurrency?: (currency: Currency) => void;
+  activeOrder?: Order | null;
+  onCancelOrder?: () => void;
 }
 
 const AVATAR_PRESETS = [
@@ -40,8 +42,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   targetRole = 'customer',
   lang = 'bn',
   onSelectLang,
-  currency = 'BDT',
+  currency = 'INR',
   onSelectCurrency,
+  activeOrder,
+  onCancelOrder,
 }) => {
   // Active App Role Tab inside Auth Modal (Customer, Kitchen, Driver, Admin)
   const [selectedAppRole, setSelectedAppRole] = useState<UserRole>(targetRole);
@@ -58,7 +62,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   // Customer State
   const [custLoginMethod, setCustLoginMethod] = useState<'otp' | 'email'>('otp');
-  const [phone, setPhone] = useState('9830188220');
+  const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
   const [otpStep, setOtpStep] = useState<'phone' | 'verify'>('phone');
   const [otpValue, setOtpValue] = useState('');
@@ -66,14 +70,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [custName, setCustName] = useState('');
   const [custEmail, setCustEmail] = useState('');
   const [custPassword, setCustPassword] = useState('');
-  const [custAddress, setCustAddress] = useState('সল্টলেক সেক্টর ৫, কলকাতা (Sector 5, Salt Lake)');
+  const [custAddress, setCustAddress] = useState('');
 
   // Profile Edit State (For Logged In User)
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editName, setEditName] = useState(currentUser?.name || '');
   const [editPhone, setEditPhone] = useState(currentUser?.phone || '');
   const [editEmail, setEditEmail] = useState(currentUser?.email || '');
-  const [editAddress, setEditAddress] = useState(currentUser?.address || 'সল্টলেক সেক্টর ৫, কলকাতা');
+  const [editAddress, setEditAddress] = useState(currentUser?.address || '');
   const [editAvatar, setEditAvatar] = useState(currentUser?.avatar || '');
   const [editVehicleNumber, setEditVehicleNumber] = useState(currentUser?.vehicleNumber || '');
   const [editEmployeeId, setEditEmployeeId] = useState(currentUser?.employeeId || '');
@@ -86,21 +90,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [profileSuccessMsg, setProfileSuccessMsg] = useState('');
 
   // Kitchen State
-  const [kitchenId, setKitchenId] = useState('KITCHEN-KOL-01');
-  const [chefPin, setChefPin] = useState('8899');
-  const [kitchenName, setKitchenName] = useState('পার্ক স্ট্রিট সেন্ট্রাল কিচেন');
-  const [chefName, setChefName] = useState('শেফ তৌফিক আহমেদ');
+  const [kitchenId, setKitchenId] = useState('');
+  const [chefPin, setChefPin] = useState('');
+  const [kitchenName, setKitchenName] = useState('');
+  const [chefName, setChefName] = useState('');
 
   // Driver / Rider State
-  const [riderPhone, setRiderPhone] = useState('9831099882');
-  const [vehiclePlate, setVehiclePlate] = useState('WB-02-AK-4920');
-  const [riderPin, setRiderPin] = useState('5522');
-  const [riderName, setRiderName] = useState('রূপম সেনগুপ্ত');
+  const [riderPhone, setRiderPhone] = useState('');
+  const [vehiclePlate, setVehiclePlate] = useState('');
+  const [riderPin, setRiderPin] = useState('');
+  const [riderName, setRiderName] = useState('');
 
   // Admin State
-  const [adminEmail, setAdminEmail] = useState('admin.fastbite@foodexpress.in');
-  const [adminKey, setAdminKey] = useState('ADMIN-2026-KEY');
-  const [adminName, setAdminName] = useState('সুপার এডমিন রানা ব্যানার্জী');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminKey, setAdminKey] = useState('');
+  const [adminName, setAdminName] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -111,7 +115,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setEditName(currentUser.name || '');
       setEditPhone(currentUser.phone || '');
       setEditEmail(currentUser.email || '');
-      setEditAddress(currentUser.address || 'সল্টলেক সেক্টর ৫, কলকাতা');
+      setEditAddress(currentUser.address || '');
       setEditAvatar(currentUser.avatar || AVATAR_PRESETS[0]);
       setEditVehicleNumber(currentUser.vehicleNumber || '');
       setEditEmployeeId(currentUser.employeeId || '');
@@ -228,11 +232,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsLoading(false);
       const newUser: UserProfile = {
         id: `usr_${Date.now()}`,
-        name: countryCode === '+91' ? 'অর্ণব ব্যানার্জী (Arnab Banerjee)' : 'তানভীর আহমেদ (Tanvir)',
+        name: countryCode === '+91' ? 'User' : 'Guest',
         phone: `${countryCode} ${phone}`,
         role: 'customer',
-        email: 'arnab.kolkata@example.com',
-        address: 'সল্টলেক সেক্টর ৫, কলকাতা',
+        email: 'user@example.com',
+        address: 'West Bengal, India',
         avatar: AVATAR_PRESETS[0],
         isLoggedIn: true,
       };
@@ -258,10 +262,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       const newUser: UserProfile = {
         id: `usr_em_${Date.now()}`,
         name: userName.charAt(0).toUpperCase() + userName.slice(1),
-        phone: '+91 98300-11223',
+        phone: '',
         role: 'customer',
         email: custEmail,
-        address: 'সল্টলেক সেক্টর ৫, কলকাতা',
+        address: '',
         avatar: AVATAR_PRESETS[1],
         isLoggedIn: true,
       };
@@ -289,7 +293,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         phone: `${countryCode} ${phone}`,
         role: 'customer',
         email: custEmail || `${custName.toLowerCase().replace(/\s+/g, '')}@example.com`,
-        address: custAddress || 'সল্টলেক সেক্টর ৫, কলকাতা',
+        address: custAddress || '',
         avatar: AVATAR_PRESETS[2],
         isLoggedIn: true,
       };
@@ -313,8 +317,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsLoading(false);
       const newUser: UserProfile = {
         id: `kit_${Date.now()}`,
-        name: chefName || 'শেফ তৌফিক আহমেদ',
-        phone: '+91 98300-99881',
+        name: chefName || 'Chef',
+        phone: '',
         role: 'kitchen',
         restaurantId: kitchenId,
         avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300',
@@ -340,7 +344,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsLoading(false);
       const newUser: UserProfile = {
         id: `drv_${Date.now()}`,
-        name: riderName || 'রূপম সেনগুপ্ত (Rupam Sengupta)',
+        name: riderName || 'Delivery Partner',
         phone: `+91 ${riderPhone}`,
         role: 'driver',
         vehicleNumber: vehiclePlate,
@@ -367,8 +371,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setIsLoading(false);
       const newUser: UserProfile = {
         id: `adm_${Date.now()}`,
-        name: adminName || 'সুপার এডমিন রানা ব্যানার্জী',
-        phone: '+91 98300-00000',
+        name: adminName || 'Admin User',
+        phone: '',
         role: 'admin',
         email: adminEmail,
         avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=300',
@@ -378,28 +382,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       soundManager.playChime('order_placed');
       onClose();
     }, 700);
-  };
-
-  // Google Demo Login
-  const handleGoogleLogin = () => {
-    setIsLoading(true);
-    soundManager.playChime('click');
-    setTimeout(() => {
-      setIsLoading(false);
-      const newUser: UserProfile = {
-        id: `usr_google_${Date.now()}`,
-        name: 'সুব্রত দাস (Subrata Das)',
-        phone: '+91 98310-99482',
-        role: selectedAppRole,
-        email: 'subrata.das@gmail.com',
-        address: 'সল্টলেক সেক্টর ৫, কলকাতা',
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=300',
-        isLoggedIn: true,
-      };
-      onLogin(newUser);
-      soundManager.playChime('order_placed');
-      onClose();
-    }, 600);
   };
 
   const getRoleHeaderInfo = () => {
@@ -475,70 +457,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
         </div>
 
-        {/* Dedicated App Role Selector Tabs */}
-        {!currentUser?.isLoggedIn && (
-          <div className="bg-zinc-950 p-2 border-b border-zinc-800">
-            <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5 px-1 flex items-center justify-between">
-              <span>কোন অ্যাপে সাইন আপ বা লগইন করতে চান?</span>
-              <span className="text-orange-400 font-bold">অ্যাপ সিলেক্ট করুন</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-              
-              <button
-                type="button"
-                onClick={() => { setSelectedAppRole('customer'); setErrorMsg(''); soundManager.playChime('click'); }}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 border ${
-                  selectedAppRole === 'customer'
-                    ? 'bg-orange-600 text-white border-orange-500 shadow-md ring-2 ring-orange-500/30'
-                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-850'
-                }`}
-              >
-                <User className="w-4 h-4" />
-                <span className="text-[11px]">১. কাস্টমার</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setSelectedAppRole('kitchen'); setErrorMsg(''); soundManager.playChime('click'); }}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 border ${
-                  selectedAppRole === 'kitchen'
-                    ? 'bg-amber-600 text-white border-amber-500 shadow-md ring-2 ring-amber-500/30'
-                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-850'
-                }`}
-              >
-                <Utensils className="w-4 h-4" />
-                <span className="text-[11px]">২. কিচেন</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setSelectedAppRole('driver'); setErrorMsg(''); soundManager.playChime('click'); }}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 border ${
-                  selectedAppRole === 'driver'
-                    ? 'bg-blue-600 text-white border-blue-500 shadow-md ring-2 ring-blue-500/30'
-                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-850'
-                }`}
-              >
-                <Bike className="w-4 h-4" />
-                <span className="text-[11px]">৩. রাইডার</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => { setSelectedAppRole('admin'); setErrorMsg(''); soundManager.playChime('click'); }}
-                className={`py-2 px-2 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 border ${
-                  selectedAppRole === 'admin'
-                    ? 'bg-emerald-600 text-white border-emerald-500 shadow-md ring-2 ring-emerald-500/30'
-                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white hover:bg-zinc-850'
-                }`}
-              >
-                <Settings className="w-4 h-4" />
-                <span className="text-[11px]">৪. এডমিন</span>
-              </button>
-
-            </div>
-          </div>
-        )}
+        {/* Dedicated App Role Selector Tabs Removed */}
 
         {/* Main Content Body */}
         <div className="p-5 space-y-5 text-zinc-200">
@@ -624,7 +543,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <MapPin className="w-4 h-4 text-orange-400 shrink-0 mt-0.5" />
                       <div>
                         <span className="text-zinc-500 block text-[10px]">ডেলিভারি ঠিকানা ও লাইভ জিপিএস:</span>
-                        <span className="font-medium text-amber-300 leading-snug">{currentUser.address || 'সল্টলেক সেক্টর ৫, কলকাতা'}</span>
+                        <span className="font-medium text-amber-300 leading-snug">{currentUser.address || 'আপনার ঠিকানা যোগ করুন'}</span>
                       </div>
                     </div>
                   </div>
@@ -675,7 +594,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={editPhone}
                         onChange={(e) => setEditPhone(e.target.value)}
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
-                        placeholder="+91 98301-88220"
+                        placeholder="+91 XXXXX-XXXXX"
                         required
                       />
                     </div>
@@ -691,7 +610,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         value={editEmail}
                         onChange={(e) => setEditEmail(e.target.value)}
                         className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
-                        placeholder="yourname@example.com"
+                        placeholder="email@example.com"
                       />
                     </div>
                   </div>
@@ -750,7 +669,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           value={editVehicleNumber}
                           onChange={(e) => setEditVehicleNumber(e.target.value)}
                           className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                          placeholder="TVS Apache 160 (WB-02-AK-4819)"
+                          placeholder="Vehicle Name (e.g. TVS Apache)"
                         />
                       </div>
                       <div>
@@ -760,7 +679,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           value={editEmployeeId}
                           onChange={(e) => setEditEmployeeId(e.target.value)}
                           className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                          placeholder="DRV-KOL-9948"
+                          placeholder="RIDER-ID-XXXX"
                         />
                       </div>
                       <div>
@@ -770,7 +689,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           value={editAssignedHub}
                           onChange={(e) => setEditAssignedHub(e.target.value)}
                           className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                          placeholder="পার্ক স্ট্রিট সেন্ট্রাল হাব"
+                          placeholder="Hub name"
                         />
                       </div>
                     </div>
@@ -789,7 +708,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           value={editRestaurantId}
                           onChange={(e) => setEditRestaurantId(e.target.value)}
                           className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
-                          placeholder="ফাস্টবাইট এক্সপ্রেস কলকাতা (Park Street HQ)"
+                          placeholder="Kitchen/Restaurant Name"
                         />
                       </div>
                       <div>
@@ -799,7 +718,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           value={editEmployeeId}
                           onChange={(e) => setEditEmployeeId(e.target.value)}
                           className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-rose-500"
-                          placeholder="KITCHEN-KOL-01"
+                          placeholder="KITCHEN-ID-XXXX"
                         />
                       </div>
                     </div>
@@ -818,7 +737,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                           value={editEmployeeId}
                           onChange={(e) => setEditEmployeeId(e.target.value)}
                           className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500"
-                          placeholder="ADMIN-SYS-2026"
+                          placeholder="ADMIN-ID-XXXX"
                         />
                       </div>
                     </div>
@@ -826,8 +745,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                   {/* 5. Avatar Picker */}
                   <div>
-                    <label className="block text-xs font-medium text-zinc-400 mb-1.5">প্রোফাইল পিকচার সিলেক্ট করুন</label>
-                    <div className="flex items-center gap-2">
+                    <label className="block text-xs font-medium text-zinc-400 mb-1.5">প্রোফাইল পিকচার সিলেক্ট করুন বা আপলোড করুন</label>
+                    <div className="flex items-center gap-2 mb-2">
                       {AVATAR_PRESETS.map((avatarUrl, idx) => (
                         <button
                           key={idx}
@@ -846,6 +765,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         </button>
                       ))}
                     </div>
+
+                    <label className="cursor-pointer bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 hover:border-orange-500/50 rounded-xl px-3 py-2 text-xs text-zinc-300 font-medium flex items-center justify-center gap-2 transition-all w-full">
+                      <Camera className="w-4 h-4 text-orange-400" />
+                      <span>গ্যালারি বা ক্যামেরা থেকে নিজস্ব ছবি দিন</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (uploadEvent) => {
+                              if (uploadEvent.target?.result) {
+                                setEditAvatar(uploadEvent.target.result as string);
+                                soundManager.playChime('click');
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
                   </div>
 
                   {/* Save Profile Button */}
@@ -921,29 +863,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <button
                         type="button"
                         onClick={() => {
-                          if (onSelectCurrency) onSelectCurrency('BDT');
-                          soundManager.playChime('click');
-                        }}
-                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-extrabold transition-all ${
-                          currency === 'BDT'
-                            ? 'bg-amber-600 text-white shadow-sm border border-amber-500'
-                            : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                        }`}
-                      >
-                        ৳ BDT
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
                           if (onSelectCurrency) onSelectCurrency('INR');
                           soundManager.playChime('click');
                         }}
-                        className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-extrabold transition-all ${
-                          currency === 'INR'
-                            ? 'bg-amber-600 text-white shadow-sm border border-amber-500'
-                            : 'bg-zinc-800 text-zinc-400 hover:text-white hover:bg-zinc-700'
-                        }`}
+                        className="flex-1 py-1.5 px-2 rounded-lg text-xs font-extrabold transition-all bg-amber-600 text-white shadow-sm border border-amber-500"
                       >
                         ₹ INR
                       </button>
@@ -951,6 +874,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Cancel Active Order */}
+              {activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled' && (
+                <button
+                  onClick={() => {
+                    if (onCancelOrder) onCancelOrder();
+                    soundManager.playChime('click');
+                    onClose();
+                  }}
+                  className="w-full py-3 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 font-bold text-sm flex items-center justify-center gap-2 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                  <span>অর্ডার ক্যানসেল করুন (Cancel Order)</span>
+                </button>
+              )}
 
               {/* Logout Button */}
               <button
@@ -1046,7 +984,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                                   className="bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 py-2.5 text-xs text-orange-400 font-bold focus:outline-none"
                                 >
                                   <option value="+91">🇮🇳 +91</option>
-                                  <option value="+880">🇧🇩 +880</option>
                                 </select>
                                 <input
                                   type="tel"
@@ -1102,7 +1039,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                               type="email"
                               value={custEmail}
                               onChange={(e) => setCustEmail(e.target.value)}
-                              placeholder="customer@example.com"
+                              placeholder="user@example.com"
                               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
                               required
                             />
@@ -1146,7 +1083,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             type="text"
                             value={custName}
                             onChange={(e) => setCustName(e.target.value)}
-                            placeholder="অর্ণব ব্যানার্জী (Arnab Banerjee)"
+                            placeholder="Enter full name"
                             className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
                             required
                           />
@@ -1163,7 +1100,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             className="bg-zinc-950 border border-zinc-800 rounded-xl px-2.5 text-xs text-orange-400 font-bold focus:outline-none"
                           >
                             <option value="+91">🇮🇳 +91</option>
-                            <option value="+880">🇧🇩 +880</option>
                           </select>
                           <div className="relative w-full">
                             <Smartphone className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
@@ -1171,7 +1107,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                               type="tel"
                               value={phone}
                               onChange={(e) => setPhone(e.target.value)}
-                              placeholder="9830188220"
+                              placeholder="Enter 10 digit number"
                               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
                               required
                             />
@@ -1188,7 +1124,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             type="email"
                             value={custEmail}
                             onChange={(e) => setCustEmail(e.target.value)}
-                            placeholder="arnab.kolkata@example.com"
+                            placeholder="user@example.com"
                             className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
                           />
                         </div>
@@ -1219,7 +1155,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                             rows={2}
                             value={custAddress}
                             onChange={(e) => setCustAddress(e.target.value)}
-                            placeholder="সল্টলেক সেক্টর ৫, কলকাতা"
+                            placeholder="Enter your full address"
                             className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white focus:outline-none focus:border-orange-500"
                             required
                           />
@@ -1276,7 +1212,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                         type="text"
                         value={kitchenName}
                         onChange={(e) => setKitchenName(e.target.value)}
-                        placeholder="পার্ক স্ট্রিট সেন্ট্রাল কিচেন"
+                        placeholder="Kitchen name"
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
                         required
                       />
@@ -1289,7 +1225,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="text"
                       value={chefName}
                       onChange={(e) => setChefName(e.target.value)}
-                      placeholder="শেফ তৌফিক আহমেদ"
+                      placeholder="Chef name"
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
                       required
                     />
@@ -1301,7 +1237,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="text"
                       value={kitchenId}
                       onChange={(e) => setKitchenId(e.target.value)}
-                      placeholder="KITCHEN-KOL-01"
+                      placeholder="KITCHEN-ID-XXXX"
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-amber-400 font-mono font-bold focus:outline-none focus:border-amber-500"
                       required
                     />
@@ -1314,7 +1250,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       maxLength={6}
                       value={chefPin}
                       onChange={(e) => setChefPin(e.target.value)}
-                      placeholder="8899"
+                      placeholder="PIN"
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-center text-lg font-mono text-amber-400 font-bold focus:outline-none focus:border-amber-500"
                       required
                     />
@@ -1355,7 +1291,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="text"
                       value={riderName}
                       onChange={(e) => setRiderName(e.target.value)}
-                      placeholder="রূপম সেনগুপ্ত"
+                      placeholder="Enter Rider Name"
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                       required
                     />
@@ -1367,7 +1303,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="tel"
                       value={riderPhone}
                       onChange={(e) => setRiderPhone(e.target.value)}
-                      placeholder="9831099882"
+                      placeholder="Rider phone number"
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
                       required
                     />
@@ -1379,7 +1315,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="text"
                       value={vehiclePlate}
                       onChange={(e) => setVehiclePlate(e.target.value)}
-                      placeholder="WB-02-AK-4920"
+                      placeholder="Vehicle plate number"
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-blue-400 font-mono font-bold focus:outline-none focus:border-blue-500"
                       required
                     />
@@ -1420,7 +1356,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="text"
                       value={adminName}
                       onChange={(e) => setAdminName(e.target.value)}
-                      placeholder="সুপার এডমিন রানা ব্যানার্জী"
+                      placeholder="Enter Admin Name"
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                       required
                     />
@@ -1432,7 +1368,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="email"
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
-                      placeholder="admin.fastbite@foodexpress.in"
+                      placeholder="admin@example.com"
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
                       required
                     />
@@ -1444,7 +1380,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       type="password"
                       value={adminKey}
                       onChange={(e) => setAdminKey(e.target.value)}
-                      placeholder="ADMIN-2026-KEY"
+                      placeholder="ADMIN-KEY-XXXX"
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
                       required
                     />
@@ -1463,31 +1399,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </button>
                 </form>
               )}
-
-              {/* Social Login Divider */}
-              <div className="relative my-2">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-zinc-800" />
-                </div>
-                <div className="relative flex justify-center text-[10px] uppercase">
-                  <span className="bg-zinc-900 px-2 text-zinc-500">অথবা দ্রুত ডেমো লগইন</span>
-                </div>
-              </div>
-
-              {/* Google Button */}
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                className="w-full py-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-2 transition-all"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.5 1 3.7 3.6 1.9 7.3l3.7 2.9C6.5 7.2 9 5 12 5z" />
-                  <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z" />
-                  <path fill="#FBBC05" d="M5.6 14.8c-.2-.7-.4-1.5-.4-2.3s.2-1.6.4-2.3L1.9 7.3C.7 9.7 0 12.4 0 15.3s.7 5.6 1.9 8l3.7-2.9c-.3-.7-.5-1.5-.5-2.3z" />
-                  <path fill="#34A853" d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3 0-5.5-2.2-6.4-5.2L1.9 16C3.7 19.7 7.5 23 12 23z" />
-                </svg>
-                <span>গুগল অ্যাকাউন্ট দিয়ে ১-ক্লিকে লগইন</span>
-              </button>
 
               {/* Language & Currency Preferences Section */}
               <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800 space-y-2 text-xs mt-3">
@@ -1516,15 +1427,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 gap-1">
                     <button
                       type="button"
-                      onClick={() => { if (onSelectCurrency) onSelectCurrency('BDT'); soundManager.playChime('click'); }}
-                      className={`flex-1 py-1 rounded-lg text-[11px] font-bold ${currency === 'BDT' ? 'bg-amber-600 text-white' : 'text-zinc-400'}`}
-                    >
-                      ৳ BDT
-                    </button>
-                    <button
-                      type="button"
                       onClick={() => { if (onSelectCurrency) onSelectCurrency('INR'); soundManager.playChime('click'); }}
-                      className={`flex-1 py-1 rounded-lg text-[11px] font-bold ${currency === 'INR' ? 'bg-amber-600 text-white' : 'text-zinc-400'}`}
+                      className="flex-1 py-1 rounded-lg text-[11px] font-bold bg-amber-600 text-white"
                     >
                       ₹ INR
                     </button>

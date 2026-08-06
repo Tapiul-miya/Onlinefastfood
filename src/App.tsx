@@ -11,11 +11,12 @@ import {
 } from './data/mockData';
 import { Language, Currency, formatPrice, TRANSLATIONS } from './utils/i18n';
 import { soundManager } from './utils/audio';
+import { db } from './lib/firebase';
+import { collection, doc, setDoc, updateDoc, onSnapshot, query } from 'firebase/firestore';
 
 import { Header } from './components/Header';
 import { MenuSection } from './components/MenuSection';
 import { FoodDetailModal } from './components/FoodDetailModal';
-import { CartDrawer } from './components/CartDrawer';
 import { RealtimeTracker } from './components/RealtimeTracker';
 import { DriverView } from './components/DriverView';
 import { KitchenView } from './components/KitchenView';
@@ -26,7 +27,7 @@ import { AuthModal } from './components/AuthModal';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 
 import { 
-  Flame, History, Sparkles, ShoppingBag, ArrowRight, Utensils, Bike, MapPin, Compass, ShieldCheck 
+  Flame, History, Sparkles, ShoppingBag, ArrowRight, Utensils, Bike, MapPin, Compass, ShieldCheck, Lock
 } from 'lucide-react';
 
 const INITIAL_ROLE_PROFILES: Record<UserRole, UserProfile> = {
@@ -158,6 +159,54 @@ export default function App() {
       localStorage.setItem('fastbite_role_profiles', JSON.stringify(newProfiles));
     } catch (e) {
       console.error(e);
+    }
+
+    if (roleToLogout === 'customer') {
+      if (activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled') {
+         const cancelledOrder: Order = {
+            ...activeOrder,
+            status: 'cancelled',
+            orderLogs: [
+              ...activeOrder.orderLogs,
+              {
+                id: `cancel_${Date.now()}`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: 'cancelled',
+                message: 'অর্ডার ক্যানসেল করা হয়েছে',
+                detail: 'কাস্টমার লগআউট করার কারণে অর্ডার বাতিল করা হয়েছে।',
+                actor: 'system'
+              }
+            ]
+         };
+         syncOrderToFirebase(cancelledOrder);
+         setOrderHistory(h => [cancelledOrder, ...h]);
+      }
+      setActiveOrder(null);
+      setCustomerTab('home');
+    }
+  };
+
+  const handleCancelOrder = () => {
+    if (activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled') {
+      const cancelledOrder: Order = {
+        ...activeOrder,
+        status: 'cancelled',
+        orderLogs: [
+          ...activeOrder.orderLogs,
+          {
+            id: `cancel_${Date.now()}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            status: 'cancelled',
+            message: 'অর্ডার ক্যানসেল করা হয়েছে',
+            detail: 'কাস্টমার নিজে অর্ডার বাতিল করেছেন।',
+            actor: 'customer'
+          }
+        ]
+      };
+      syncOrderToFirebase(cancelledOrder);
+      setOrderHistory(h => [cancelledOrder, ...h]);
+      setActiveOrder(null);
+      setCustomerTab('home');
     }
   };
 
@@ -311,10 +360,7 @@ export default function App() {
   // Delivery Drivers list (Editable by Admin)
   const [driversList, setDriversList] = useState<Driver[]>(INITIAL_DRIVERS_LIST);
 
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [selectedMenuItem, setSelectedMenuItem] = useState<MenuItem | null>(null);
-  
-  const [isCartOpen, setIsCartOpen] = useState<boolean>(false);
   const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
   const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
@@ -329,43 +375,43 @@ export default function App() {
     }
   });
 
-  const [pushNotificationsList, setPushNotificationsList] = useState<Array<{
+  const [pushNotificationsDict, setPushNotificationsDict] = useState<Record<UserRole, Array<{
     id: string;
     title: string;
     body: string;
     time: string;
     read: boolean;
-  }>>(() => {
+  }>>>(() => {
     try {
-      const saved = localStorage.getItem('fastbite_push_list');
+      const saved = localStorage.getItem('fastbite_push_dict');
       if (saved) return JSON.parse(saved);
     } catch {}
-    return [
-      {
+    
+    const initPush = {
         id: 'p_init_1',
         title: 'ফাস্টবাইট পুশ নোটিফিকেশন সিস্টেম চালু আছে',
         body: 'আপনার অর্ডারের লাইভ আপডেট ও ডেলিভারি অ্যালার্ট সরাসরি পুশ নোটিফিকেশনে পাওয়া যাবে।',
         time: 'এখনই',
         read: false,
-      }
-    ];
+    };
+    
+    return {
+      customer: [initPush],
+      admin: [initPush],
+      kitchen: [initPush],
+      courier: [initPush]
+    };
   });
 
   const [activePushToast, setActivePushToast] = useState<{ title: string; body: string } | null>(null);
 
   useEffect(() => {
     try {
-      localStorage.setItem('fastbite_push_list', JSON.stringify(pushNotificationsList));
+      localStorage.setItem('fastbite_push_dict', JSON.stringify(pushNotificationsDict));
     } catch {}
-  }, [pushNotificationsList]);
+  }, [pushNotificationsDict]);
 
-  const triggerPushNotification = (title: string, body: string) => {
-    if (!pushEnabled) return;
-
-    if (soundEnabled) {
-      soundManager.playChime('push_notification');
-    }
-
+  const triggerPushNotification = (title: string, body: string, targetRoles: UserRole[] = ['customer', 'admin', 'kitchen', 'courier']) => {
     const newPush = {
       id: `push_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       title,
@@ -374,31 +420,43 @@ export default function App() {
       read: false,
     };
 
-    setPushNotificationsList(prev => [newPush, ...prev].slice(0, 20));
-    setActivePushToast({ title, body });
+    setPushNotificationsDict(prev => {
+      const next = { ...prev };
+      for (const tRole of targetRoles) {
+        next[tRole] = [newPush, ...(next[tRole] || [])].slice(0, 20);
+      }
+      return next;
+    });
 
-    setTimeout(() => {
-      setActivePushToast(prev => prev?.title === title ? null : prev);
-    }, 5000);
+    // Only show toast/chime if the current role is in targetRoles and push is enabled
+    if (targetRoles.includes(role) && pushEnabled) {
+      if (soundEnabled) {
+        soundManager.playChime('push_notification');
+      }
+      setActivePushToast({ title, body });
+      setTimeout(() => {
+        setActivePushToast(prev => prev?.title === title ? null : prev);
+      }, 5000);
 
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
-        try {
-          new Notification(title, {
-            body,
-            icon: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&q=80&w=120'
-          });
-        } catch (e) {
-          console.error(e);
-        }
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-          if (permission === 'granted') {
-            try {
-              new Notification(title, { body });
-            } catch (e) {}
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'granted') {
+          try {
+            new Notification(title, {
+              body,
+              icon: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&q=80&w=120'
+            });
+          } catch (e) {
+            console.error(e);
           }
-        });
+        } else if (Notification.permission !== 'denied') {
+          Notification.requestPermission().then(permission => {
+            if (permission === 'granted') {
+              try {
+                new Notification(title, { body });
+              } catch (e) {}
+            }
+          });
+        }
       }
     }
   };
@@ -415,23 +473,86 @@ export default function App() {
       if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission !== 'granted') {
         Notification.requestPermission();
       }
-      triggerPushNotification('পুশ নোটিফিকেশন চালু করা হয়েছে', 'এখন থেকে সমস্ত অর্ডারের লাইভ আপডেট তাৎক্ষণিকভাবে পুশ নোটিফিকেশনে পাবেন।');
+      triggerPushNotification('পুশ নোটিফিকেশন চালু করা হয়েছে', 'এখন থেকে সমস্ত অর্ডারের লাইভ আপডেট তাৎক্ষণিকভাবে পুশ নোটিফিকেশনে পাবেন।', [role]);
     }
   };
 
   const handleClearPush = () => {
     soundManager.playChime('click');
-    setPushNotificationsList([]);
-  };
-
-  const handleTestPush = () => {
-    soundManager.playChime('click');
-    triggerPushNotification('🧪 টেস্ট পুশ নোটিফিকেশন', 'আপনার ফাস্টবাইট পুশ নোটিফিকেশন সিস্টেম সফলভাবে কাজ করছে!');
+    setPushNotificationsDict(prev => ({ ...prev, [role]: [] }));
   };
 
   // Active Live Order
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [orderHistory, setOrderHistory] = useState<Order[]>([]);
+
+  const syncOrderToFirebase = async (order: Order | null) => {
+    if (!order) return;
+    try {
+      await setDoc(doc(db, "orders", order.id), order);
+    } catch (e) {
+      console.error("Firebase sync error:", e);
+    }
+  };
+
+  // Real-time Firestore sync across devices and Android app instances
+  useEffect(() => {
+    try {
+      const q = query(collection(db, "orders"));
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          const orderData = change.doc.data() as Order;
+          if (change.type === 'added') {
+            setActiveOrder((current) => {
+              if (!current || current.id !== orderData.id) {
+                // Determine roles that should see "New Cloud Order"
+                // Usually admin and kitchen if pending, but we'll send to admin, kitchen
+                triggerPushNotification(
+                  `🛎️ ক্লাউড অর্ডার অ্যালার্ট: #${orderData.orderNumber}`,
+                  `অন্য ডিভাইস থেকে নতুন অর্ডার এসেছে (${orderData.items.length}টি আইটেম)। গ্রাহক: ${orderData.customerName}`,
+                  ['admin', 'kitchen']
+                );
+                return orderData;
+              }
+              return current;
+            });
+          } else if (change.type === 'modified') {
+            setActiveOrder((current) => {
+              if (current && current.id === orderData.id && current.status !== orderData.status) {
+                let targets: UserRole[] = ['customer', 'admin'];
+                if (orderData.status === 'confirmed' || orderData.status === 'preparing') targets.push('kitchen');
+                if (orderData.status === 'ready_for_pickup' || orderData.status === 'on_the_way' || orderData.status === 'delivered') targets.push('courier');
+
+                triggerPushNotification(
+                  `📦 অর্ডার আপডেট (#${orderData.orderNumber})`,
+                  `স্ট্যাটাস পরিবর্তিত হয়ে হয়েছে: ${orderData.status}`,
+                  targets
+                );
+              }
+              // Wait, if it's a different order than current active, we still want to notify other roles maybe?
+              // But if it's the active order, we return it.
+              // We'll just return orderData if it matches current, else keep current.
+              if (current && current.id === orderData.id) {
+                 return orderData;
+              }
+              
+              if (!current) {
+                 return orderData;
+              }
+              
+              return current;
+            });
+          }
+        });
+      }, (err) => {
+        console.error("Firestore snapshot error:", err);
+      });
+
+      return () => unsubscribe();
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
 
   // Real-time GPS Simulation State
   const [simSpeed, setSimSpeed] = useState<number>(1);
@@ -520,8 +641,14 @@ export default function App() {
     };
 
     setActiveOrder(demoOrder);
+    syncOrderToFirebase(demoOrder);
     setCustomerTab('tracking');
-    soundManager.playChime('order_placed');
+    soundManager.playChime('push_notification');
+    triggerPushNotification(
+      `🛎️ পার্টনার অ্যালার্ট: নতুন অর্ডার #${demoOrder.orderNumber}`,
+      `রেস্তোরাঁ কিচেন ও রাইডারের কাছে নতুন অর্ডার সফলভাবে পাঠানো হয়েছে।`,
+      ['admin', 'kitchen', 'courier']
+    );
   };
 
   // Real-time GPS Movement Animation Loop
@@ -614,62 +741,9 @@ export default function App() {
       };
 
       setOrderHistory((h) => [completedOrder, ...h]);
+      syncOrderToFirebase(completedOrder);
       return completedOrder;
     });
-  };
-
-  // Cart Handlers
-  const handleAddToCart = (
-    menuItem: MenuItem,
-    quantity: number,
-    selectedOptions: SelectedOption[],
-    specialInstructions: string
-  ) => {
-    soundManager.playChime('click');
-    const optionsPrice = selectedOptions.reduce((acc, opt) => acc + opt.price, 0);
-    const itemTotalPrice = (menuItem.price + optionsPrice) * quantity;
-
-    const newItem: CartItem = {
-      cartItemId: `cart_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-      menuItem,
-      quantity,
-      selectedOptions,
-      specialInstructions,
-      itemTotalPrice,
-    };
-
-    setCartItems((prev) => [...prev, newItem]);
-    setIsCartOpen(true);
-  };
-
-  const handleQuickAdd = (menuItem: MenuItem) => {
-    handleAddToCart(menuItem, 1, [], '');
-  };
-
-  const handleUpdateCartQty = (cartItemId: string, newQty: number) => {
-    if (newQty <= 0) {
-      handleRemoveCartItem(cartItemId);
-      return;
-    }
-    soundManager.playChime('click');
-    setCartItems((prev) =>
-      prev.map((item) => {
-        if (item.cartItemId === cartItemId) {
-          const unitPrice = item.itemTotalPrice / item.quantity;
-          return {
-            ...item,
-            quantity: newQty,
-            itemTotalPrice: unitPrice * newQty,
-          };
-        }
-        return item;
-      })
-    );
-  };
-
-  const handleRemoveCartItem = (cartItemId: string) => {
-    soundManager.playChime('click');
-    setCartItems((prev) => prev.filter((item) => item.cartItemId !== cartItemId));
   };
 
   // Admin Item Management
@@ -713,7 +787,7 @@ export default function App() {
     const newOrder: Order = {
       id: `ord_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
       orderNumber: `FD-${orderNum}`,
-      items: [...cartItems],
+      items: [],
       subtotal,
       deliveryFee,
       tip,
@@ -748,13 +822,20 @@ export default function App() {
     };
 
     setActiveOrder(newOrder);
-    setCartItems([]);
+    syncOrderToFirebase(newOrder);
     setRouteProgressIdx(0);
     setIsSimPaused(false);
 
     triggerPushNotification(
       `🍽️ নতুন অর্ডার প্লেস হয়েছে! (${newOrder.orderNumber})`,
-      `আপনার অর্ডার সফলভাবে প্লেস করা হয়েছে। মোট মূল্য: ${formatPrice(newOrder.totalAmount, currency)}।`
+      `আপনার অর্ডার সফলভাবে প্লেস করা হয়েছে। মোট মূল্য: ${formatPrice(newOrder.totalAmount, currency)}।`,
+      ['customer']
+    );
+
+    triggerPushNotification(
+      `🛎️ রেস্তোরাঁ ও পার্টনার অ্যালার্ট: নতুন অর্ডার #${newOrder.orderNumber}`,
+      `কিচেনে নতুন অর্ডার এসেছে (${newOrder.items.length}টি আইটেম)। গ্রাহক: ${newOrder.customerName}।`,
+      ['admin', 'kitchen', 'courier']
     );
 
     // Trigger Order Success Modal & Sound
@@ -784,11 +865,13 @@ export default function App() {
 
     setActiveOrder((prev) => {
       if (!prev) return null;
-      return {
+      const updated = {
         ...prev,
         status: nextStatus,
         orderLogs: [...prev.orderLogs, newLog],
       };
+      syncOrderToFirebase(updated);
+      return updated;
     });
   };
 
@@ -847,6 +930,18 @@ export default function App() {
 
   const t = TRANSLATIONS[lang];
 
+  const isKitchenLoggedIn = roleProfiles.kitchen?.isLoggedIn;
+  const isDriverLoggedIn = roleProfiles.driver?.isLoggedIn;
+  
+  let partnerAvailabilityError = '';
+  if (!isKitchenLoggedIn && !isDriverLoggedIn) {
+     partnerAvailabilityError = 'দুঃখিত, কোনো রেস্টুরেন্ট বা রাইডার এই মুহূর্তে অনলাইনে নেই। অর্ডার করতে পারবেন না।';
+  } else if (!isKitchenLoggedIn) {
+     partnerAvailabilityError = 'দুঃখিত, রেস্টুরেন্ট এই মুহূর্তে অফলাইনে আছে। অর্ডার করতে পারবেন না।';
+  } else if (!isDriverLoggedIn) {
+     partnerAvailabilityError = 'দুঃখিত, কোনো রাইডার এই মুহূর্তে অনলাইনে নেই। অর্ডার করতে পারবেন না।';
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans antialiased selection:bg-orange-500 selection:text-white flex flex-col">
       
@@ -854,8 +949,6 @@ export default function App() {
       <Header
         role={role}
         onSelectRole={handleSelectRole}
-        cartCount={cartItems.reduce((acc, i) => acc + i.quantity, 0)}
-        onOpenCart={() => setIsCartOpen(true)}
         activeOrder={activeOrder}
         onOpenTracking={() => {
           soundManager.playChime('click');
@@ -878,9 +971,8 @@ export default function App() {
         onOpenAuth={() => setIsAuthOpen(true)}
         pushEnabled={pushEnabled}
         onTogglePush={handleTogglePush}
-        pushNotifications={pushNotificationsList}
+        pushNotifications={pushNotificationsDict[role] || []}
         onClearPush={handleClearPush}
-        onTestPush={handleTestPush}
       />
 
       {/* Floating Push Notification Toast Banner */}
@@ -999,7 +1091,6 @@ export default function App() {
                 {/* Main Menu Section */}
                 <MenuSection
                   onSelectItem={setSelectedMenuItem}
-                  onQuickAdd={handleQuickAdd}
                   lang={lang}
                   currency={currency}
                   menuItems={menuItems}
@@ -1112,50 +1203,76 @@ export default function App() {
           </div>
         )}
 
-        {/* Driver Role View */}
-        {role === 'driver' && (
-          <DriverView
-            order={activeOrder}
-            onUpdateStatus={handleManualStatusUpdate}
-            onSendMessage={handleSendChatMessage}
-            onOpenChat={() => setIsChatOpen(true)}
-            lang={lang}
-            currency={currency}
-            currentUser={currentUser}
-            onOpenAuth={() => setIsAuthOpen(true)}
-            onUpdateDriverLocation={handleUpdateDriverLocation}
-          />
-        )}
+        {/* Partner Login Gate */}
+        {role !== 'customer' && !currentUser?.isLoggedIn ? (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center space-y-5">
+            <div className="w-20 h-20 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center text-zinc-400">
+              <Lock className="w-8 h-8" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white mb-2">অ্যাক্সেস সংরক্ষিত</h2>
+              <p className="text-zinc-400 text-sm max-w-xs mx-auto">
+                {role === 'driver' ? 'রাইডার' : role === 'kitchen' ? 'কিচেন' : 'এডমিন'} প্যানেল দেখতে আপনাকে প্রথমে লগইন করতে হবে।
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                soundManager.playChime('click');
+                setIsAuthOpen(true);
+              }}
+              className="bg-orange-600 hover:bg-orange-500 text-white font-bold py-3 px-6 rounded-2xl shadow-lg shadow-orange-900/20"
+            >
+              লগইন করুন
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Driver Role View */}
+            {role === 'driver' && (
+              <DriverView
+                order={activeOrder}
+                onUpdateStatus={handleManualStatusUpdate}
+                onSendMessage={handleSendChatMessage}
+                onOpenChat={() => setIsChatOpen(true)}
+                lang={lang}
+                currency={currency}
+                currentUser={currentUser}
+                onOpenAuth={() => setIsAuthOpen(true)}
+                onUpdateDriverLocation={handleUpdateDriverLocation}
+              />
+            )}
 
-        {/* Kitchen KDS Role View */}
-        {role === 'kitchen' && (
-          <KitchenView
-            order={activeOrder}
-            onUpdateStatus={handleManualStatusUpdate}
-            currentUser={currentUser}
-            onOpenAuth={() => setIsAuthOpen(true)}
-          />
-        )}
+            {/* Kitchen KDS Role View */}
+            {role === 'kitchen' && (
+              <KitchenView
+                order={activeOrder}
+                onUpdateStatus={handleManualStatusUpdate}
+                currentUser={currentUser}
+                onOpenAuth={() => setIsAuthOpen(true)}
+              />
+            )}
 
-        {/* Admin Role View */}
-        {role === 'admin' && (
-          <AdminView
-            lang={lang}
-            currency={currency}
-            onSelectCurrency={setCurrency}
-            onSelectLang={setLang}
-            menuItems={menuItems}
-            onAddMenuItem={handleAddMenuItem}
-            onUpdateMenuItem={handleUpdateMenuItem}
-            onDeleteMenuItem={handleDeleteMenuItem}
-            orders={orderHistory}
-            activeOrder={activeOrder}
-            onForceOrderStatus={handleManualStatusUpdate}
-            drivers={driversList}
-            onAssignDriver={handleAssignDriver}
-            currentUser={currentUser}
-            onOpenAuth={() => setIsAuthOpen(true)}
-          />
+            {/* Admin Role View */}
+            {role === 'admin' && (
+              <AdminView
+                lang={lang}
+                currency={currency}
+                onSelectCurrency={setCurrency}
+                onSelectLang={setLang}
+                menuItems={menuItems}
+                onAddMenuItem={handleAddMenuItem}
+                onUpdateMenuItem={handleUpdateMenuItem}
+                onDeleteMenuItem={handleDeleteMenuItem}
+                orders={orderHistory}
+                activeOrder={activeOrder}
+                onForceOrderStatus={handleManualStatusUpdate}
+                drivers={driversList}
+                onAssignDriver={handleAssignDriver}
+                currentUser={currentUser}
+                onOpenAuth={() => setIsAuthOpen(true)}
+              />
+            )}
+          </>
         )}
 
       </main>
@@ -1164,7 +1281,7 @@ export default function App() {
       <footer className="border-t border-zinc-900 bg-zinc-950 py-8 text-center text-xs text-zinc-500 space-y-2">
         <div className="flex items-center justify-center gap-2 text-zinc-400 font-medium">
           <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-          <span>ফাস্টবাইট এক্সপ্রেস - বাংলাদেশ ও ভারত ফাস্টফুড প্ল্যাটফর্ম</span>
+          <span>ফাস্টবাইট এক্সপ্রেস - ভারত ফাস্টফুড প্ল্যাটফর্ম</span>
           <span>• ৩টি অ্যাপস একত্রে (কাস্টমার, ডেলিভারি রাইডার ও এডমিন)</span>
         </div>
         <p className="text-[11px] text-zinc-600">
@@ -1176,22 +1293,8 @@ export default function App() {
       <FoodDetailModal
         item={selectedMenuItem}
         onClose={() => setSelectedMenuItem(null)}
-        onAddToCart={handleAddToCart}
         lang={lang}
         currency={currency}
-      />
-
-      <CartDrawer
-        isOpen={isCartOpen}
-        onClose={() => setIsCartOpen(false)}
-        cartItems={cartItems}
-        onUpdateQuantity={handleUpdateCartQty}
-        onRemoveItem={handleRemoveCartItem}
-        onCheckout={handleCheckout}
-        lang={lang}
-        currency={currency}
-        selectedAddress={selectedAddress}
-        onSelectAddress={setSelectedAddress}
       />
 
       <ChatModal
@@ -1206,9 +1309,8 @@ export default function App() {
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         orderHistory={orderHistory}
-        onReorder={(oldOrder) => {
-          setCartItems(oldOrder.items);
-          setIsCartOpen(true);
+        onReorder={() => {
+          // Reorder functionality is removed since cart is removed
         }}
         onSubmitRating={(orderId, foodRating, driverRating, feedback) => {
           setOrderHistory((prev) =>
@@ -1236,6 +1338,8 @@ export default function App() {
         onSelectLang={setLang}
         currency={currency}
         onSelectCurrency={setCurrency}
+        activeOrder={activeOrder}
+        onCancelOrder={handleCancelOrder}
       />
 
       <OrderSuccessModal
@@ -1251,46 +1355,6 @@ export default function App() {
           setCustomerTab('tracking');
         }}
       />
-
-      {/* Persistent Floating Sticky Bottom Cart Bar for Customer View */}
-      {role === 'customer' && cartItems.length > 0 && !isCartOpen && (
-        <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-6 sm:bottom-6 max-w-md w-full mx-auto z-40 animate-slide-up">
-          <div 
-            onClick={() => {
-              soundManager.playChime('click');
-              setIsCartOpen(true);
-            }}
-            className="bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 hover:from-orange-500 hover:to-amber-500 text-white rounded-2xl p-3.5 sm:p-4 shadow-2xl shadow-orange-600/40 border-2 border-orange-400/50 backdrop-blur-md flex items-center justify-between cursor-pointer transition-all active:scale-[0.98] group"
-          >
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center border border-white/30 text-white group-hover:scale-110 transition-transform">
-                  <ShoppingBag className="w-5 h-5 text-white" />
-                </div>
-                <span className="absolute -top-1.5 -right-1.5 bg-white text-orange-600 font-black text-xs w-5 h-5 rounded-full flex items-center justify-center shadow-md">
-                  {cartItems.reduce((acc, item) => acc + item.quantity, 0)}
-                </span>
-              </div>
-              <div>
-                <p className="text-xs font-bold text-orange-100 flex items-center gap-1">
-                  <span>খাবারের ঝুড়ি (Food Cart)</span>
-                  <span className="text-[10px] bg-black/20 px-1.5 py-0.5 rounded-md text-amber-200">
-                    {cartItems.length} টি আইটেম
-                  </span>
-                </p>
-                <p className="text-sm font-extrabold text-white font-mono">
-                  {formatPrice(cartItems.reduce((acc, item) => acc + item.itemTotalPrice, 0), currency)}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 bg-black/20 group-hover:bg-black/30 px-3 py-2 rounded-xl border border-white/20 text-xs font-extrabold text-white transition-colors">
-              <span>কার্ট দেখুন (View Cart)</span>
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </div>
-          </div>
-        </div>
-      )}
 
     </div>
   );

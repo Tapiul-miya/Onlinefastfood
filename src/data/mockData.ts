@@ -39,16 +39,6 @@ export const REGIONAL_PRESET_LOCATIONS: { name: string; address: string; geo: Ge
     address: 'হিল কার্ট রোড, এয়ার ভিউ মোড়, শিলিগুড়ি (Hill Cart Rd, Siliguri)',
     geo: { lat: 26.7161, lng: 88.4236 },
   },
-  {
-    name: 'ঢাকা - ধানমণ্ডি',
-    address: 'ধানমণ্ডি ২৭, রোড ১০/এ, ঢাকা (Dhanmondi 27, Dhaka)',
-    geo: { lat: 23.7461, lng: 90.3742 },
-  },
-  {
-    name: 'ঢাকা - গুলশান',
-    address: 'গুলশান ১ সার্কেল, ঢাকা (Gulshan 1, Dhaka)',
-    geo: { lat: 23.7806, lng: 90.4193 },
-  },
 ];
 
 export const DEFAULT_DRIVER: Driver = {

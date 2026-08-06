@@ -6,7 +6,6 @@ import { soundManager } from '../utils/audio';
 
 interface MenuSectionProps {
   onSelectItem: (item: MenuItem) => void;
-  onQuickAdd: (item: MenuItem) => void;
   lang: Language;
   currency: Currency;
   menuItems: MenuItem[];
@@ -14,7 +13,6 @@ interface MenuSectionProps {
 
 export const MenuSection: React.FC<MenuSectionProps> = ({
   onSelectItem,
-  onQuickAdd,
   lang,
   currency,
   menuItems,
@@ -71,7 +69,7 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
         <div className="relative z-10 max-w-2xl space-y-2.5 sm:space-y-3">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/30 backdrop-blur-md border border-white/10 text-[10px] sm:text-xs font-semibold text-amber-300">
             <Zap className="w-3 h-3 sm:w-3.5 sm:h-3.5 fill-amber-400 text-amber-400 shrink-0" />
-            <span className="truncate">লাইভ জিপিএস ট্র্যাকিং • বাংলাদেশ ও ভারত এক্সপ্রেস</span>
+            <span className="truncate">লাইভ জিপিএস ট্র্যাকিং • এক্সপ্রেস ডেলিভারি</span>
           </div>
 
           <h1 className="text-xl sm:text-4xl font-extrabold tracking-tight leading-tight">
@@ -279,19 +277,6 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                       className="hidden sm:block px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-colors border border-zinc-700/60"
                     >
                       কাস্টমাইজ
-                    </button>
-
-                    <button
-                      id={`btn-quick-add-${item.id}`}
-                      onClick={() => {
-                        soundManager.playChime('click');
-                        onQuickAdd(item);
-                      }}
-                      className="p-1.5 sm:p-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold transition-all shadow-md active:scale-95 flex items-center gap-1"
-                      title={t.quickAdd}
-                    >
-                      <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
-                      <span className="text-[10px] font-bold sm:hidden">যোগ করুন</span>
                     </button>
                   </div>
                 </div>

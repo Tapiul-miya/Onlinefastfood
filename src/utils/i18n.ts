@@ -1,32 +1,26 @@
 export type Language = 'bn' | 'en';
-export type Currency = 'BDT' | 'INR';
+export type Currency = 'INR';
 
 export interface CurrencyConfig {
   code: Currency;
   symbol: string;
-  rateVsUsd: number; // For converting default USD prices to local BDT / INR
+  rateVsUsd: number; // For converting default USD prices to local INR
   name: string;
 }
 
 export const CURRENCY_CONFIGS: Record<Currency, CurrencyConfig> = {
-  BDT: {
-    code: 'BDT',
-    symbol: '৳',
-    rateVsUsd: 118, // $1 ≈ ৳118 BDT
-    name: 'বাংলাদেশের টাকা (৳ BDT)',
-  },
   INR: {
     code: 'INR',
     symbol: '₹',
     rateVsUsd: 83, // $1 ≈ ₹83 INR
-    name: 'ভারতীয় রুপি (₹ INR)',
+    name: 'भारतीय रुपया (₹ INR)',
   },
 };
 
-export function formatPrice(priceUsd: number, currency: Currency = 'BDT'): string {
-  const config = CURRENCY_CONFIGS[currency];
+export function formatPrice(priceUsd: number, currency: Currency = 'INR'): string {
+  const config = CURRENCY_CONFIGS[currency] || CURRENCY_CONFIGS.INR;
   const localAmount = Math.round(priceUsd * config.rateVsUsd);
-  return `${config.symbol}${localAmount.toLocaleString('bn-BD')}`;
+  return `${config.symbol}${localAmount.toLocaleString('en-IN')}`;
 }
 
 export const TRANSLATIONS = {
@@ -87,7 +81,7 @@ export const TRANSLATIONS = {
       totalAmount: 'সর্বমোট মূল্য',
       paymentMethod: 'পেমেন্ট পদ্ধতি',
       cod: 'ক্যাশ অন ডেলিভারি (COD)',
-      onlinePay: 'অনলাইন পে (bKash/Nagad/UPI)',
+      onlinePay: 'অনলাইন পে (UPI/Cards)',
       placeOrder: 'কনফার্ম করুন ও অর্ডার দিন',
     },
     tracker: {
@@ -122,7 +116,7 @@ export const TRANSLATIONS = {
       sendNote: 'কাস্টমারকে লাইভ বার্তা পাঠান:',
     },
     adminApp: {
-      title: 'এডমিন কন্ট্রোল প্যানেল (বাংলাদেশ ও ভারত)',
+      title: 'এডমিন কন্ট্রোল প্যানেল',
       subtitle: 'মেনু আইটেম, দাম, রাইডার, অর্ডারের লাইভ স্ট্যাটাস ও সিস্টেম সেটিংস',
       totalRevenue: 'মোট রেভিনিউ',
       activeDeliveries: 'চলতি ডেলিভারি',
@@ -205,7 +199,7 @@ export const TRANSLATIONS = {
       totalAmount: 'Total Amount',
       paymentMethod: 'Payment Method',
       cod: 'Cash on Delivery (COD)',
-      onlinePay: 'Online Payment (bKash/Nagad/UPI)',
+      onlinePay: 'Online Payment (UPI/Cards)',
       placeOrder: 'Confirm & Place Order',
     },
     tracker: {
@@ -240,7 +234,7 @@ export const TRANSLATIONS = {
       sendNote: 'Send Live Update to Customer:',
     },
     adminApp: {
-      title: 'Admin Control Panel (India & Bangladesh)',
+      title: 'Admin Control Panel',
       subtitle: 'Full management of menu items, prices, delivery riders, live orders & regional settings',
       totalRevenue: 'Total Revenue',
       activeDeliveries: 'Active Deliveries',

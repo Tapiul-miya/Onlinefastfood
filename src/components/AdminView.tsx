@@ -165,7 +165,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
             onChange={(e) => onSelectCurrency(e.target.value as Currency)}
             className="bg-zinc-800 text-white rounded-lg px-2 py-1 border border-zinc-700 text-xs font-bold cursor-pointer"
           >
-            <option value="BDT">৳ BDT</option>
             <option value="INR">₹ INR</option>
           </select>
         </div>
@@ -538,24 +537,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
             <div className="space-y-1.5">
               <label className="text-zinc-400 font-bold block">Default Currency (মুদ্রা):</label>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                <button
-                  onClick={() => onSelectCurrency('BDT')}
-                  className={`p-3 rounded-xl font-bold border transition-all text-center ${
-                    currency === 'BDT'
-                      ? 'bg-amber-600 text-white border-amber-500'
-                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
-                  }`}
-                >
-                  ৳ Bangladeshi Taka (BDT)
-                </button>
+              <div className="grid grid-cols-1 gap-2 sm:gap-3">
                 <button
                   onClick={() => onSelectCurrency('INR')}
-                  className={`p-3 rounded-xl font-bold border transition-all text-center ${
-                    currency === 'INR'
-                      ? 'bg-amber-600 text-white border-amber-500'
-                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
-                  }`}
+                  className="p-3 rounded-xl font-bold border transition-all text-center bg-amber-600 text-white border-amber-500"
                 >
                   ₹ Indian Rupee (INR)
                 </button>
@@ -588,7 +573,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   value={editingItem.name || ''}
                   onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
                   className="w-full p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-white"
-                  placeholder="যেমন: ঢাকা শাহী খাসির কাচ্চি বিরিয়ানি"
+                  placeholder="যেমন: পার্ক স্ট্রিট খাসির কাচ্চি বিরিয়ানি"
                 />
               </div>
 

@@ -1,0 +1,23 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Food delivery order entity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderNumber": { "type": "string" },
+        "status": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "customerName": { "type": "string" }
+      },
+      "required": ["id", "orderNumber", "status"]
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Orders collection for real-time synchronization across devices"
+    }
+  }
+}
