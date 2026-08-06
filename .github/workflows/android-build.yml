@@ -1,5 +1,15 @@
-name: Build Android APK
-on: [push, pull_request, workflow_dispatch]
+name: FastBite Android Multi-Flavor Build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
 
 jobs:
   build-apk:
@@ -63,77 +73,12 @@ jobs:
           GRADLE_FILE="android/app/build.gradle"
           if [ -f "$GRADLE_FILE" ]; then
             echo "Injecting Product Flavors into $GRADLE_FILE..."
+            # Inject flavorDimensions
+            sed -i '/defaultConfig {/i \    flavorDimensions "default"' "$GRADLE_FILE"
             
-            # Create a separate flavors file for cleaner injection
-            cat << 'FLV_EOF' > android/app/product_flavors.gradle
-android {
-    flavorDimensions "default"
-    productFlavors {
-        customer {
-            dimension "default"
-            applicationIdSuffix ".customer"
-            manifestPlaceholders = [appName: "FastBite"]
-        }
-        kitchen {
-            dimension "default"
-            applicationIdSuffix ".kitchen"
-            manifestPlaceholders = [appName: "FastBite Kitchen"]
-        }
-        rider {
-            dimension "default"
-            applicationIdSuffix ".rider"
-            manifestPlaceholders = [appName: "FastBite Rider"]
-        }
-        admin {
-            dimension "default"
-            applicationIdSuffix ".admin"
-            manifestPlaceholders = [appName: "FastBite Admin"]
-        }
-    }
-}
-FLV_EOF
-            # Apply the flavors file at the end of build.gradle
-            echo "apply from: 'product_flavors.gradle'" >> "$GRADLE_FILE"
-          fi
-
-      - name: Configure Flavor Icons
-        run: |
-          # Function to generate icons for a flavor
-          generate_icons() {
-            local FLAVOR=$1
-            local ICON_SRC=$2
-            local RES_DIR="android/app/src/$FLAVOR/res"
-            
-            echo "Generating icons for $FLAVOR from $ICON_SRC..."
-            
-            mkdir -p "$RES_DIR/mipmap-mdpi"
-            mkdir -p "$RES_DIR/mipmap-hdpi"
-            mkdir -p "$RES_DIR/mipmap-xhdpi"
-            mkdir -p "$RES_DIR/mipmap-xxhdpi"
-            mkdir -p "$RES_DIR/mipmap-xxxhdpi"
-            
-            # Use convert (ImageMagick) to generate different sizes
-            convert "$ICON_SRC" -resize 48x48 "$RES_DIR/mipmap-mdpi/ic_launcher.png"
-            convert "$ICON_SRC" -resize 72x72 "$RES_DIR/mipmap-hdpi/ic_launcher.png"
-            convert "$ICON_SRC" -resize 96x96 "$RES_DIR/mipmap-xhdpi/ic_launcher.png"
-            convert "$ICON_SRC" -resize 144x144 "$RES_DIR/mipmap-xxhdpi/ic_launcher.png"
-            convert "$ICON_SRC" -resize 192x192 "$RES_DIR/mipmap-xxxhdpi/ic_launcher.png"
-            
-            # Copy to round icons as well for simplicity
-            cp "$RES_DIR/mipmap-mdpi/ic_launcher.png" "$RES_DIR/mipmap-mdpi/ic_launcher_round.png"
-            cp "$RES_DIR/mipmap-hdpi/ic_launcher.png" "$RES_DIR/mipmap-hdpi/ic_launcher_round.png"
-            cp "$RES_DIR/mipmap-xhdpi/ic_launcher.png" "$RES_DIR/mipmap-xhdpi/ic_launcher_round.png"
-            cp "$RES_DIR/mipmap-xxhdpi/ic_launcher.png" "$RES_DIR/mipmap-xxhdpi/ic_launcher_round.png"
-            cp "$RES_DIR/mipmap-xxxhdpi/ic_launcher.png" "$RES_DIR/mipmap-xxxhdpi/ic_launcher_round.png"
-          }
-          
-          if [ -d "src/assets/icons" ]; then
-            generate_icons "customer" "src/assets/icons/customer.jpg"
-            generate_icons "kitchen" "src/assets/icons/kitchen.jpg"
-            generate_icons "rider" "src/assets/icons/rider.jpg"
-            generate_icons "admin" "src/assets/icons/admin.jpg"
-          else
-            echo "Warning: src/assets/icons directory not found. Skipping flavor icons."
+            # Inject productFlavors block before buildTypes
+            FLAVORS_BLOCK="    productFlavors {\n        customer {\n            dimension \"default\"\n            applicationIdSuffix \".customer\"\n            manifestPlaceholders = [appName: \"FastBite Customer\"]\n        }\n        kitchen {\n            dimension \"default\"\n            applicationIdSuffix \".kitchen\"\n            manifestPlaceholders = [appName: \"FastBite Kitchen\"]\n        }\n        rider {\n            dimension \"default\"\n            applicationIdSuffix \".rider\"\n            manifestPlaceholders = [appName: \"FastBite Rider\"]\n        }\n        admin {\n            dimension \"default\"\n            applicationIdSuffix \".admin\"\n            manifestPlaceholders = [appName: \"FastBite Admin\"]\n        }\n    }"
+            sed -i "/buildTypes {/i $FLAVORS_BLOCK" "$GRADLE_FILE"
           fi
 
       - name: Build Android APK with Gradle
@@ -147,29 +92,29 @@ FLV_EOF
           if [ ! -f "settings.gradle" ]; then
             echo "settings.gradle is missing. Creating a default one..."
             cat << 'SET_EOF' > settings.gradle
-include ':app'
+          include ':app'
 
-if (file('capacitor-cordova-android-plugins').exists()) {
-    include ':capacitor-cordova-android-plugins'
-    project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
-}
+          if (file('capacitor-cordova-android-plugins').exists()) {
+              include ':capacitor-cordova-android-plugins'
+              project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
+          }
 
-def capacitorSettings = file('capacitor.settings.gradle')
-if (capacitorSettings.exists()) {
-    apply from: capacitorSettings
-}
-SET_EOF
+          def capacitorSettings = file('capacitor.settings.gradle')
+          if (capacitorSettings.exists()) {
+              apply from: capacitorSettings
+          }
+          SET_EOF
           else
             if ! grep -q "capacitor-cordova-android-plugins" settings.gradle; then
               if [ -d "capacitor-cordova-android-plugins" ]; then
                 echo "Adding capacitor-cordova-android-plugins to settings.gradle..."
                 cat << 'SET_EOF' >> settings.gradle
 
-if (file('capacitor-cordova-android-plugins').exists()) {
-    include ':capacitor-cordova-android-plugins'
-    project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
-}
-SET_EOF
+          if (file('capacitor-cordova-android-plugins').exists()) {
+              include ':capacitor-cordova-android-plugins'
+              project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
+          }
+          SET_EOF
               fi
             fi
           fi
@@ -177,23 +122,23 @@ SET_EOF
           if [ ! -f "variables.gradle" ]; then
             echo "variables.gradle is missing. Creating a default one..."
             cat << 'VAR_EOF' > variables.gradle
-ext {
-    minSdkVersion = 22
-    compileSdkVersion = 36
-    targetSdkVersion = 35
-    androidxActivityVersion = '1.8.0'
-    androidxAppCompatVersion = '1.6.1'
-    androidxCoordinatorLayoutVersion = '1.2.0'
-    androidxCoreVersion = '1.12.0'
-    androidxFragmentVersion = '1.6.2'
-    coreSplashScreenVersion = '1.0.1'
-    androidxWebkitVersion = '1.9.0'
-    junitVersion = '4.13.2'
-    androidxJunitVersion = '1.1.5'
-    androidxEspressoCoreVersion = '3.5.1'
-    cordovaAndroidVersion = '10.1.1'
-}
-VAR_EOF
+          ext {
+              minSdkVersion = 22
+              compileSdkVersion = 36
+              targetSdkVersion = 35
+              androidxActivityVersion = '1.8.0'
+              androidxAppCompatVersion = '1.6.1'
+              androidxCoordinatorLayoutVersion = '1.2.0'
+              androidxCoreVersion = '1.12.0'
+              androidxFragmentVersion = '1.6.2'
+              coreSplashScreenVersion = '1.0.1'
+              androidxWebkitVersion = '1.9.0'
+              junitVersion = '4.13.2'
+              androidxJunitVersion = '1.1.5'
+              androidxEspressoCoreVersion = '3.5.1'
+              cordovaAndroidVersion = '10.1.1'
+          }
+          VAR_EOF
           fi
           
           echo "Updating compileSdkVersion and compileSdk to 36 in all Gradle configuration files..."
@@ -206,16 +151,16 @@ VAR_EOF
             echo "Adding Kotlin stdlib resolution strategy to build.gradle..."
             cat << 'BUILD_EOF' >> build.gradle
 
-allprojects {
-    configurations.all {
-        resolutionStrategy {
-            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
-            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
-            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
-        }
-    }
-}
-BUILD_EOF
+          allprojects {
+              configurations.all {
+                  resolutionStrategy {
+                      force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+                  }
+              }
+          }
+          BUILD_EOF
           fi
           
           echo "Android folder structure:"
