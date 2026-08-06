@@ -20,7 +20,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
 
       - name: Set up Java JDK 21
         uses: actions/setup-java@v4
@@ -41,16 +40,111 @@ jobs:
 
       - name: Add / Sync Capacitor Android
         run: |
+          npm install -D @capacitor/cli
+          npm install @capacitor/core @capacitor/android
+          if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
+            echo "Initializing Capacitor..."
+            npx cap init "MyApp" "com.example.myapp" --web-dir dist
+          fi
           npx cap add android || true
+          echo "Removing stale assets before sync..."
+          rm -rf android/app/src/main/assets/public
+          npx cap copy android
           npx cap sync android
 
       - name: Build Android APK with Gradle
         run: |
+          if [ ! -d "android" ]; then
+            echo "Error: android directory does not exist. Capacitor add may have failed."
+            exit 1
+          fi
           cd android
-          gradle assembleDebug --stacktrace
+          
+          if [ ! -f "settings.gradle" ]; then
+            echo "settings.gradle is missing. Creating a default one..."
+            cat << 'SET_EOF' > settings.gradle
+          include ':app'
+
+          if (file('capacitor-cordova-android-plugins').exists()) {
+              include ':capacitor-cordova-android-plugins'
+              project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
+          }
+
+          def capacitorSettings = file('capacitor.settings.gradle')
+          if (capacitorSettings.exists()) {
+              apply from: capacitorSettings
+          }
+          SET_EOF
+          else
+            if ! grep -q "capacitor-cordova-android-plugins" settings.gradle; then
+              if [ -d "capacitor-cordova-android-plugins" ]; then
+                echo "Adding capacitor-cordova-android-plugins to settings.gradle..."
+                cat << 'SET_EOF' >> settings.gradle
+
+          if (file('capacitor-cordova-android-plugins').exists()) {
+              include ':capacitor-cordova-android-plugins'
+              project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
+          }
+          SET_EOF
+              fi
+            fi
+          fi
+          
+          if [ ! -f "variables.gradle" ]; then
+            echo "variables.gradle is missing. Creating a default one..."
+            cat << 'VAR_EOF' > variables.gradle
+          ext {
+              minSdkVersion = 22
+              compileSdkVersion = 35
+              targetSdkVersion = 35
+              androidxActivityVersion = '1.8.0'
+              androidxAppCompatVersion = '1.6.1'
+              androidxCoordinatorLayoutVersion = '1.2.0'
+              androidxCoreVersion = '1.12.0'
+              androidxFragmentVersion = '1.6.2'
+              coreSplashScreenVersion = '1.0.1'
+              androidxWebkitVersion = '1.9.0'
+              junitVersion = '4.13.2'
+              androidxJunitVersion = '1.1.5'
+              androidxEspressoCoreVersion = '3.5.1'
+              cordovaAndroidVersion = '10.1.1'
+          }
+          VAR_EOF
+          else
+            sed -i 's/compileSdkVersion = .*/compileSdkVersion = 35/' variables.gradle
+            sed -i 's/targetSdkVersion = .*/targetSdkVersion = 35/' variables.gradle
+          fi
+          
+          if ! grep -q "resolutionStrategy" build.gradle; then
+            echo "Adding Kotlin stdlib resolution strategy to build.gradle..."
+            cat << 'BUILD_EOF' >> build.gradle
+
+          allprojects {
+              configurations.all {
+                  resolutionStrategy {
+                      force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+                  }
+              }
+          }
+          BUILD_EOF
+          fi
+          
+          echo "Android folder structure:"
+          ls -la
+          
+          echo "Cleaning corrupted Gradle wrapper..."
+          rm -rf gradle/wrapper/gradle-wrapper.jar
+          
+          echo "Generating Gradle wrapper..."
+          gradle wrapper --gradle-version 8.13
+          
+          chmod +x gradlew
+          ./gradlew clean assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: HisabBook-Debug-APK
+          name: Android-Debug-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
