@@ -1,0 +1,11 @@
+{
+  "appId": "com.khabarghor.app",
+  "appName": "খাবারঘর",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}
