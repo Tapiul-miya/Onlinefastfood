@@ -44,13 +44,24 @@ jobs:
           npm install @capacitor/core @capacitor/android
           if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
             echo "Initializing Capacitor..."
-            npx cap init "MyApp" "com.example.myapp" --web-dir dist
+            npx cap init "KhabarGhor" "com.khabarghor.app" --web-dir dist
           fi
           npx cap add android || true
           echo "Removing stale assets before sync..."
           rm -rf android/app/src/main/assets/public
           npx cap copy android
           npx cap sync android
+
+          MANIFEST_FILE="android/app/src/main/AndroidManifest.xml"
+          if [ -f "$MANIFEST_FILE" ]; then
+            echo "Injecting Android permissions into AndroidManifest.xml..."
+            for PERM in "INTERNET" "ACCESS_NETWORK_STATE" "ACCESS_FINE_LOCATION" "ACCESS_COARSE_LOCATION" "CALL_PHONE" "CAMERA" "VIBRATE" "POST_NOTIFICATIONS" "READ_EXTERNAL_STORAGE" "READ_MEDIA_IMAGES"; do
+              if ! grep -q "android.permission.$PERM" "$MANIFEST_FILE"; then
+                sed -i "/<application/i \    <uses-permission android:name=\"android.permission.$PERM\" \/>" "$MANIFEST_FILE"
+              fi
+            done
+            echo "Permissions injected successfully!"
+          fi
 
       - name: Build Android APK with Gradle
         run: |
