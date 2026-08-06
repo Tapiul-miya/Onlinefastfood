@@ -1,9 +1,5 @@
-name: Android Multi-Flavor Build
-
-on:
-  push:
-  pull_request:
-  workflow_dispatch: {}
+name: Build Android APK
+on: [push, pull_request, workflow_dispatch]
 
 jobs:
   build-apk:
