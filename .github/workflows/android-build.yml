@@ -19,8 +19,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          lfs: true
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -88,56 +86,38 @@ jobs:
           echo '<resources><string name="app_name">FB Rider</string><string name="title_activity_main">FB Rider</string></resources>' > android/app/src/rider/res/values/strings.xml
           echo '<resources><string name="app_name">FB Manager</string><string name="title_activity_main">FB Manager</string></resources>' > android/app/src/admin/res/values/strings.xml
 
-          # Generate distinct launcher PNG icons directly from src/assets/icons/ folder using Sharp
+          # Generate distinct launcher PNG icons using Node.js & Sharp from our premium SVGs
           npm install sharp
           node -e '
           const fs = require("fs");
           const path = require("path");
           const sharp = require("sharp");
 
-          const flavors = ["customer", "kitchen", "rider", "admin"];
+          const apps = ["customer", "kitchen", "rider", "admin"];
           const densities = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
 
           async function generateIcons() {
-            for (const flavor of flavors) {
-              let sourceImage = null;
-              const possibleExtensions = [".png", ".jpg", ".jpeg", ".PNG", ".JPG", ".JPEG", ".webp"];
-              
-              for (const ext of possibleExtensions) {
-                const testPath = `src/assets/icons/${flavor}${ext}`;
-                if (fs.existsSync(testPath)) {
-                  sourceImage = testPath;
-                  break;
-                }
+            for (const flavor of apps) {
+              const svgPath = `src/assets/icons/${flavor}.svg`;
+              if (!fs.existsSync(svgPath)) {
+                console.error(`SVG icon not found at ${svgPath}`);
+                continue;
               }
+              const svgContent = fs.readFileSync(svgPath, "utf8");
 
-              if (!sourceImage) {
-                console.error(`Error: Logo image for ${flavor} not found in src/assets/icons/!`);
-                process.exit(1);
-              }
+              for (const [dens, size] of Object.entries(densities)) {
+                const dir = `android/app/src/${flavor}/res/mipmap-${dens}`;
+                fs.mkdirSync(dir, { recursive: true });
 
-              console.log(`Generating icons for ${flavor} using ${sourceImage}...`);
-
-              try {
-                const imageBuffer = fs.readFileSync(sourceImage);
-
-                for (const [dens, size] of Object.entries(densities)) {
-                  const dir = `android/app/src/${flavor}/res/mipmap-${dens}`;
-                  fs.mkdirSync(dir, { recursive: true });
-
-                  await sharp(imageBuffer, { failOn: "none" })
-                    .resize(size, size, { fit: "cover" })
-                    .toFormat("png")
-                    .toFile(path.join(dir, "ic_launcher.png"));
-
-                  await sharp(imageBuffer, { failOn: "none" })
-                    .resize(size, size, { fit: "cover" })
-                    .toFormat("png")
-                    .toFile(path.join(dir, "ic_launcher_round.png"));
-                }
-              } catch (err) {
-                console.error(`Error processing ${flavor} icon (${sourceImage}):`, err.message);
-                process.exit(1);
+                const buffer = Buffer.from(svgContent);
+                await sharp(buffer)
+                  .resize(size, size)
+                  .png()
+                  .toFile(path.join(dir, "ic_launcher.png"));
+                await sharp(buffer)
+                  .resize(size, size)
+                  .png()
+                  .toFile(path.join(dir, "ic_launcher_round.png"));
               }
             }
           }

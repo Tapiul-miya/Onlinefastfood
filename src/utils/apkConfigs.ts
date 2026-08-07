@@ -1,8 +1,8 @@
 import { UserRole } from '../types';
-import customerIcon from '../assets/icons/customer.jpg';
-import kitchenIcon from '../assets/icons/kitchen.jpg';
-import riderIcon from '../assets/icons/rider.jpg';
-import adminIcon from '../assets/icons/admin.jpg';
+import customerIcon from '../assets/icons/customer.svg';
+import kitchenIcon from '../assets/icons/kitchen.svg';
+import riderIcon from '../assets/icons/rider.svg';
+import adminIcon from '../assets/icons/admin.svg';
 
 export interface AppConfig {
   role: UserRole;
