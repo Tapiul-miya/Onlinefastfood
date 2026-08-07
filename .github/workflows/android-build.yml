@@ -60,6 +60,7 @@ jobs:
           if [ -f "$MANIFEST_FILE" ]; then
             echo "Injecting Android permissions and Flavor Label into AndroidManifest.xml..."
             sed -i 's/android:label="@string\/app_name"/android:label="${appName}"/g' "$MANIFEST_FILE"
+            sed -i 's/android:label="@string\/title_activity_main"/android:label="${appName}"/g' "$MANIFEST_FILE"
             
             for PERM in "INTERNET" "ACCESS_NETWORK_STATE" "ACCESS_FINE_LOCATION" "ACCESS_COARSE_LOCATION" "CALL_PHONE" "CAMERA" "VIBRATE" "POST_NOTIFICATIONS" "READ_EXTERNAL_STORAGE" "READ_MEDIA_IMAGES"; do
               if ! grep -q "android.permission.$PERM" "$MANIFEST_FILE"; then
@@ -69,16 +70,39 @@ jobs:
             echo "Permissions injected successfully!"
           fi
 
-          # Setup Product Flavors Strings
-          mkdir -p android/app/src/customer/res/values
-          mkdir -p android/app/src/kitchen/res/values
-          mkdir -p android/app/src/rider/res/values
-          mkdir -p android/app/src/admin/res/values
+          # Setup Product Flavors Unique Names & Distinct Launcher Icons
+          for FLAVOR in customer kitchen rider admin; do
+            mkdir -p android/app/src/$FLAVOR/res/values
+            mkdir -p android/app/src/$FLAVOR/res/drawable
+            mkdir -p android/app/src/$FLAVOR/res/mipmap-anydpi-v26
+          done
 
-          echo '<resources><string name="app_name">FastBite Food Delivery</string></resources>' > android/app/src/customer/res/values/strings.xml
-          echo '<resources><string name="app_name">FastBite Kitchen KDS</string></resources>' > android/app/src/kitchen/res/values/strings.xml
-          echo '<resources><string name="app_name">FastBite Rider Partner</string></resources>' > android/app/src/rider/res/values/strings.xml
-          echo '<resources><string name="app_name">FastBite Super Manager</string></resources>' > android/app/src/admin/res/values/strings.xml
+          # 1. CUSTOMER APP (Orange / Burger Icon)
+          printf '<resources><string name="app_name">FastBite Delivery</string><string name="title_activity_main">FastBite Delivery</string></resources>' > android/app/src/customer/res/values/strings.xml
+          printf '<resources><color name="ic_launcher_background">#F97316</color></resources>' > android/app/src/customer/res/values/colors.xml
+          printf '<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#FFFFFF" android:pathData="M34,46 C34,34 74,34 74,46 L34,46 Z M32,50 L76,50 C77,50 78,51 78,52 L78,54 C78,55 77,56 76,56 L32,56 C31,56 30,55 30,54 L30,52 C30,51 31,50 32,50 Z M34,60 L74,60 C74,68 34,68 34,60 Z"/></vector>' > android/app/src/customer/res/drawable/ic_launcher_foreground.xml
+
+          # 2. KITCHEN KDS APP (Rose Red / Chef Pan Icon)
+          printf '<resources><string name="app_name">FastBite Kitchen</string><string name="title_activity_main">FastBite Kitchen</string></resources>' > android/app/src/kitchen/res/values/strings.xml
+          printf '<resources><color name="ic_launcher_background">#E11D48</color></resources>' > android/app/src/kitchen/res/values/colors.xml
+          printf '<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#FFFFFF" android:pathData="M38,48 C32,43 34,33 44,34 C48,26 60,26 64,34 C74,33 76,43 70,48 L38,48 Z M38,52 L70,52 L68,66 L40,66 Z"/></vector>' > android/app/src/kitchen/res/drawable/ic_launcher_foreground.xml
+
+          # 3. RIDER PARTNER APP (Emerald Green / Scooter Icon)
+          printf '<resources><string name="app_name">FastBite Rider</string><string name="title_activity_main">FastBite Rider</string></resources>' > android/app/src/rider/res/values/strings.xml
+          printf '<resources><color name="ic_launcher_background">#10B981</color></resources>' > android/app/src/rider/res/values/colors.xml
+          printf '<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#FFFFFF" android:pathData="M38,62 A6,6 0 1,1 38,50 A6,6 0 1,1 38,62 Z M70,62 A6,6 0 1,1 70,50 A6,6 0 1,1 70,62 Z M42,46 L56,46 L64,56 M54,36 L60,36 L56,46"/></vector>' > android/app/src/rider/res/drawable/ic_launcher_foreground.xml
+
+          # 4. ADMIN MANAGER APP (Indigo / Shield Icon)
+          printf '<resources><string name="app_name">FastBite Manager</string><string name="title_activity_main">FastBite Manager</string></resources>' > android/app/src/admin/res/values/strings.xml
+          printf '<resources><color name="ic_launcher_background">#6366F1</color></resources>' > android/app/src/admin/res/values/colors.xml
+          printf '<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#FFFFFF" android:pathData="M54,30 L74,38 L74,54 C74,66 54,74 54,74 C54,74 34,66 34,54 L34,38 Z M54,40 L54,64 M44,50 L64,50"/></vector>' > android/app/src/admin/res/drawable/ic_launcher_foreground.xml
+
+          # Apply Adaptive Icon XML to all 4 flavor mipmaps
+          ADAPTIVE_ICON='<?xml version="1.0" encoding="utf-8"?><adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android"><background android:drawable="@color/ic_launcher_background"/><foreground android:drawable="@drawable/ic_launcher_foreground"/></adaptive-icon>'
+          for FLAVOR in customer kitchen rider admin; do
+            printf "%s" "$ADAPTIVE_ICON" > android/app/src/$FLAVOR/res/mipmap-anydpi-v26/ic_launcher.xml
+            printf "%s" "$ADAPTIVE_ICON" > android/app/src/$FLAVOR/res/mipmap-anydpi-v26/ic_launcher_round.xml
+          done
 
           GRADLE_FILE="android/app/build.gradle"
           if [ -f "$GRADLE_FILE" ]; then
@@ -88,7 +112,7 @@ jobs:
             fi
             
             if ! grep -q "productFlavors" "$GRADLE_FILE"; then
-              FLAVORS_BLOCK="    productFlavors {\n        customer {\n            dimension \"default\"\n            applicationId \"com.fastbite.customer.app\"\n            manifestPlaceholders = [appName: \"FastBite Food Delivery\"]\n        }\n        kitchen {\n            dimension \"default\"\n            applicationId \"com.fastbite.kitchen.kds\"\n            manifestPlaceholders = [appName: \"FastBite Kitchen KDS\"]\n        }\n        rider {\n            dimension \"default\"\n            applicationId \"com.fastbite.rider.partner\"\n            manifestPlaceholders = [appName: \"FastBite Rider Partner\"]\n        }\n        admin {\n            dimension \"default\"\n            applicationId \"com.fastbite.admin.manager\"\n            manifestPlaceholders = [appName: \"FastBite Super Manager\"]\n        }\n    }"
+              FLAVORS_BLOCK="    productFlavors {\n        customer {\n            dimension \"default\"\n            applicationId \"com.fastbite.customer.app\"\n            resValue \"string\", \"app_name\", \"FastBite Delivery\"\n            resValue \"string\", \"title_activity_main\", \"FastBite Delivery\"\n            manifestPlaceholders = [appName: \"FastBite Delivery\"]\n        }\n        kitchen {\n            dimension \"default\"\n            applicationId \"com.fastbite.kitchen.kds\"\n            resValue \"string\", \"app_name\", \"FastBite Kitchen\"\n            resValue \"string\", \"title_activity_main\", \"FastBite Kitchen\"\n            manifestPlaceholders = [appName: \"FastBite Kitchen\"]\n        }\n        rider {\n            dimension \"default\"\n            applicationId \"com.fastbite.rider.partner\"\n            resValue \"string\", \"app_name\", \"FastBite Rider\"\n            resValue \"string\", \"title_activity_main\", \"FastBite Rider\"\n            manifestPlaceholders = [appName: \"FastBite Rider\"]\n        }\n        admin {\n            dimension \"default\"\n            applicationId \"com.fastbite.admin.manager\"\n            resValue \"string\", \"app_name\", \"FastBite Manager\"\n            resValue \"string\", \"title_activity_main\", \"FastBite Manager\"\n            manifestPlaceholders = [appName: \"FastBite Manager\"]\n        }\n    }"
               sed -i "/buildTypes {/i $FLAVORS_BLOCK" "$GRADLE_FILE"
             fi
           fi
