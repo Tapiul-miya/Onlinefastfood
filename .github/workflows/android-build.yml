@@ -75,26 +75,10 @@ jobs:
           mkdir -p android/app/src/rider/res/values
           mkdir -p android/app/src/admin/res/values
 
-          cat << 'EOF' > android/app/src/customer/res/values/strings.xml
-          <resources>
-              <string name="app_name">FastBite Food Delivery</string>
-          </resources>
-EOF
-          cat << 'EOF' > android/app/src/kitchen/res/values/strings.xml
-          <resources>
-              <string name="app_name">FastBite Kitchen KDS</string>
-          </resources>
-EOF
-          cat << 'EOF' > android/app/src/rider/res/values/strings.xml
-          <resources>
-              <string name="app_name">FastBite Rider Partner</string>
-          </resources>
-EOF
-          cat << 'EOF' > android/app/src/admin/res/values/strings.xml
-          <resources>
-              <string name="app_name">FastBite Super Manager</string>
-          </resources>
-EOF
+          echo '<resources><string name="app_name">FastBite Food Delivery</string></resources>' > android/app/src/customer/res/values/strings.xml
+          echo '<resources><string name="app_name">FastBite Kitchen KDS</string></resources>' > android/app/src/kitchen/res/values/strings.xml
+          echo '<resources><string name="app_name">FastBite Rider Partner</string></resources>' > android/app/src/rider/res/values/strings.xml
+          echo '<resources><string name="app_name">FastBite Super Manager</string></resources>' > android/app/src/admin/res/values/strings.xml
 
           GRADLE_FILE="android/app/build.gradle"
           if [ -f "$GRADLE_FILE" ]; then
@@ -118,52 +102,20 @@ EOF
           cd android
           
           if [ ! -f "settings.gradle" ]; then
-            echo "settings.gradle is missing. Creating a default one..."
-            cat << 'SET_EOF' > settings.gradle
-          include ':app'
-          if (file('capacitor-cordova-android-plugins').exists()) {
-              include ':capacitor-cordova-android-plugins'
-              project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
-          }
-          def capacitorSettings = file('capacitor.settings.gradle')
-          if (capacitorSettings.exists()) {
-              apply from: capacitorSettings
-          }
-          SET_EOF
+            echo "settings.gradle is missing. Creating default..."
+            printf "include ':app'\nif (file('capacitor-cordova-android-plugins').exists()) {\n    include ':capacitor-cordova-android-plugins'\n    project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')\n}\ndef capacitorSettings = file('capacitor.settings.gradle')\nif (capacitorSettings.exists()) {\n    apply from: capacitorSettings\n}\n" > settings.gradle
           else
             if ! grep -q "capacitor-cordova-android-plugins" settings.gradle; then
               if [ -d "capacitor-cordova-android-plugins" ]; then
                 echo "Adding capacitor-cordova-android-plugins to settings.gradle..."
-                cat << 'SET_EOF' >> settings.gradle
-          if (file('capacitor-cordova-android-plugins').exists()) {
-              include ':capacitor-cordova-android-plugins'
-              project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
-          }
-          SET_EOF
+                printf "\nif (file('capacitor-cordova-android-plugins').exists()) {\n    include ':capacitor-cordova-android-plugins'\n    project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')\n}\n" >> settings.gradle
               fi
             fi
           fi
           
           if [ ! -f "variables.gradle" ]; then
-            echo "variables.gradle is missing. Creating a default one..."
-            cat << 'VAR_EOF' > variables.gradle
-          ext {
-              minSdkVersion = 22
-              compileSdkVersion = 36
-              targetSdkVersion = 35
-              androidxActivityVersion = '1.8.0'
-              androidxAppCompatVersion = '1.6.1'
-              androidxCoordinatorLayoutVersion = '1.2.0'
-              androidxCoreVersion = '1.12.0'
-              androidxFragmentVersion = '1.6.2'
-              coreSplashScreenVersion = '1.0.1'
-              androidxWebkitVersion = '1.9.0'
-              junitVersion = '4.13.2'
-              androidxJunitVersion = '1.1.5'
-              androidxEspressoCoreVersion = '3.5.1'
-              cordovaAndroidVersion = '10.1.1'
-          }
-          VAR_EOF
+            echo "variables.gradle is missing. Creating default..."
+            printf "ext {\n    minSdkVersion = 22\n    compileSdkVersion = 36\n    targetSdkVersion = 35\n    androidxActivityVersion = '1.8.0'\n    androidxAppCompatVersion = '1.6.1'\n    androidxCoordinatorLayoutVersion = '1.2.0'\n    androidxCoreVersion = '1.12.0'\n    androidxFragmentVersion = '1.6.2'\n    coreSplashScreenVersion = '1.0.1'\n    androidxWebkitVersion = '1.9.0'\n    junitVersion = '4.13.2'\n    androidxJunitVersion = '1.1.5'\n    androidxEspressoCoreVersion = '3.5.1'\n    cordovaAndroidVersion = '10.1.1'\n}\n" > variables.gradle
           fi
           
           echo "Updating compileSdkVersion and compileSdk to 36 in all Gradle configuration files..."
@@ -174,21 +126,8 @@ EOF
           
           if ! grep -q "resolutionStrategy" build.gradle; then
             echo "Adding Kotlin stdlib resolution strategy to build.gradle..."
-            cat << 'BUILD_EOF' >> build.gradle
-          allprojects {
-              configurations.all {
-                  resolutionStrategy {
-                      force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
-                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
-                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
-                  }
-              }
-          }
-          BUILD_EOF
+            printf "\nallprojects {\n    configurations.all {\n        resolutionStrategy {\n            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'\n            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'\n            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'\n        }\n    }\n}\n" >> build.gradle
           fi
-          
-          echo "Android folder structure:"
-          ls -la
           
           echo "Cleaning corrupted Gradle wrapper..."
           rm -rf gradle/wrapper/gradle-wrapper.jar
@@ -197,7 +136,6 @@ EOF
           gradle wrapper --gradle-version 8.13
           
           chmod +x gradlew
-          # assembleDebug will now build all flavors: customer, kitchen, rider, admin
           ./gradlew clean assembleDebug --stacktrace
 
       - name: Upload All APK Artifacts
