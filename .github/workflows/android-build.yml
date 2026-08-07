@@ -86,6 +86,15 @@ jobs:
           echo '<resources><string name="app_name">FB Rider</string><string name="title_activity_main">FB Rider</string></resources>' > android/app/src/rider/res/values/strings.xml
           echo '<resources><string name="app_name">FB Manager</string><string name="title_activity_main">FB Manager</string></resources>' > android/app/src/admin/res/values/strings.xml
 
+          # Customize native splash screen style and background to match our dark theme (#09090b)
+          echo "Customizing Native Android Splash Screen styles..."
+          STYLES_FILES=$(find android/ -name "styles.xml" -o -name "themes.xml")
+          for SFILE in $STYLES_FILES; do
+            echo "Modifying splash screen background in $SFILE..."
+            sed -i 's/#ffffff/#09090b/g' "$SFILE"
+            sed -i 's/#FFFFFF/#09090b/g' "$SFILE"
+          done
+
           # Generate distinct launcher PNG icons using Node.js & Sharp from our premium SVGs
           npm install sharp
           node -e '
