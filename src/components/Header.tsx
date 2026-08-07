@@ -25,6 +25,7 @@ interface HeaderProps {
   pushNotifications: Array<{ id: string; title: string; body: string; time: string; read: boolean }>;
   onClearPush: () => void;
   onOpenApkModal?: () => void;
+  onTriggerSplash?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -47,6 +48,7 @@ export const Header: React.FC<HeaderProps> = ({
   pushNotifications,
   onClearPush,
   onOpenApkModal,
+  onTriggerSplash,
 }) => {
   const isTrackingActive = activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled';
   const t = TRANSLATIONS[lang];
@@ -106,6 +108,18 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Controls: Audio & Cart */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 max-w-full">
+
+            {/* Splash Preview Button */}
+            {onTriggerSplash && (
+              <button
+                id="btn-trigger-splash-preview"
+                onClick={onTriggerSplash}
+                title="স্প্ল্যাশ স্ক্রিন প্রিভিউ করুন (Preview Splash Screen)"
+                className="p-1.5 sm:p-2 rounded-xl bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 hover:text-orange-400 transition-colors border border-zinc-700/60 shrink-0 flex items-center justify-center group"
+              >
+                <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-400 group-hover:scale-110 transition-transform" />
+              </button>
+            )}
 
             {/* Audio Toggle */}
             <button

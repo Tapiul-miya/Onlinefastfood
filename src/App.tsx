@@ -28,6 +28,7 @@ import { AuthModal } from './components/AuthModal';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { CancelledOrderModal } from './components/CancelledOrderModal';
 import { ApkBuildModal } from './components/ApkBuildModal';
+import { SplashScreen } from './components/SplashScreen';
 import { updateAppTitleAndIcon } from './utils/apkConfigs';
 
 import { 
@@ -117,6 +118,7 @@ export default function App() {
 
   const [role, setRole] = useState<UserRole>('customer');
   const [isRoleLocked, setIsRoleLocked] = useState<boolean>(false);
+  const [showSplash, setShowSplash] = useState<boolean>(true);
 
   useEffect(() => {
     const detectFlavor = async () => {
@@ -1058,6 +1060,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 font-sans antialiased selection:bg-orange-500 selection:text-white flex flex-col">
+      {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
       
       {/* Top Header Navigation */}
       <Header
@@ -1089,6 +1092,7 @@ export default function App() {
         pushNotifications={pushNotificationsDict[role] || []}
         onClearPush={handleClearPush}
         onOpenApkModal={() => setIsApkModalOpen(true)}
+        onTriggerSplash={() => setShowSplash(true)}
       />
 
       {/* Floating Push Notification Toast Banner */}
