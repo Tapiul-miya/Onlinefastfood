@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingBag, MapPin, Volume2, VolumeX, Bike, User, Flame, ShieldAlert, Utensils, Sparkles, LogIn, Bell, BellRing, Trash2, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, MapPin, Volume2, VolumeX, Bike, User, Flame, ShieldAlert, Utensils, Sparkles, LogIn, Bell, BellRing, Trash2, CheckCircle2, Smartphone } from 'lucide-react';
 import { UserRole, Order, UserProfile } from '../types';
 import { Language, Currency, TRANSLATIONS } from '../utils/i18n';
 import { soundManager } from '../utils/audio';
@@ -23,6 +23,7 @@ interface HeaderProps {
   onTogglePush: () => void;
   pushNotifications: Array<{ id: string; title: string; body: string; time: string; read: boolean }>;
   onClearPush: () => void;
+  onOpenApkModal?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -44,6 +45,7 @@ export const Header: React.FC<HeaderProps> = ({
   onTogglePush,
   pushNotifications,
   onClearPush,
+  onOpenApkModal,
 }) => {
   const isTrackingActive = activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled';
   const t = TRANSLATIONS[lang];
@@ -203,18 +205,6 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* Active Tracking Button */}
-            {isTrackingActive && (
-              <button
-                id="btn-open-live-tracker"
-                onClick={onOpenTracking}
-                className="relative flex items-center gap-1 px-2 py-1.5 sm:px-2.5 sm:py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-bold shadow-lg shadow-orange-500/20 ring-2 ring-orange-400/30 animate-pulse shrink-0"
-              >
-                <Bike className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                <span className="hidden md:inline">{t.header.liveTrack}</span>
-              </button>
-            )}
-
             {/* User Profile / Login Button */}
             <button
               id="btn-open-auth-modal"
@@ -320,6 +310,24 @@ export const Header: React.FC<HeaderProps> = ({
                     <div className="text-[9px] opacity-80 hidden sm:block">মেনু এডিট ও ম্যানেজমেন্ট</div>
                   </div>
                 </button>
+
+                {/* 5. APK Builder Button */}
+                {onOpenApkModal && (
+                  <button
+                    id="btn-open-apk-builder"
+                    onClick={() => { soundManager.playChime('click'); onOpenApkModal(); }}
+                    className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500 hover:from-orange-600 hover:to-emerald-600 text-white font-bold shadow-lg shadow-orange-500/20 border border-amber-400/30 shrink-0"
+                    title="৪টি আলাদা অ্যাপের APK বিল্ড ও কনফিগারেশন ডাউনলোড করুন"
+                  >
+                    <Smartphone className="w-4 h-4 text-white animate-pulse" />
+                    <div className="text-left leading-tight">
+                      <div className="font-extrabold text-xs sm:text-sm flex items-center gap-1">
+                        📱 APK বিল্ড
+                      </div>
+                      <div className="text-[9px] text-amber-100 hidden sm:block font-normal">আলাদা নাম ও আইকন</div>
+                    </div>
+                  </button>
+                )}
 
               </div>
             </div>

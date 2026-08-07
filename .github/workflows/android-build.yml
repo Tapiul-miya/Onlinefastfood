@@ -1,4 +1,4 @@
-name: FastBite Android Multi-Flavor Build
+name: Build Android APKs
 
 on:
   push:
@@ -13,7 +13,7 @@ on:
 
 jobs:
   build-apk:
-    name: Build Android Debug APK
+    name: Build Android APKs for All 4 Apps
     runs-on: ubuntu-latest
 
     steps:
@@ -42,13 +42,13 @@ jobs:
       - name: Build Web Project
         run: npm run build
 
-      - name: Add / Sync Capacitor Android
+      - name: Add & Sync Capacitor Android with Product Flavors
         run: |
           npm install -D @capacitor/cli
           npm install @capacitor/core @capacitor/android
           if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
             echo "Initializing Capacitor..."
-            npx cap init "FastBite" "com.fastbite.app" --web-dir dist
+            npx cap init "FastBite Food Delivery" "com.fastbite.customer.app" --web-dir dist
           fi
           npx cap add android || true
           echo "Removing stale assets before sync..."
@@ -58,8 +58,7 @@ jobs:
 
           MANIFEST_FILE="android/app/src/main/AndroidManifest.xml"
           if [ -f "$MANIFEST_FILE" ]; then
-            echo "Injecting Android permissions and Flavor Label into AndroidManifest.xml..."
-            # Use manifest placeholder for app name
+            echo "Injecting Android permissions into AndroidManifest.xml..."
             sed -i 's/android:label="@string\/app_name"/android:label="${appName}"/g' "$MANIFEST_FILE"
             
             for PERM in "INTERNET" "ACCESS_NETWORK_STATE" "ACCESS_FINE_LOCATION" "ACCESS_COARSE_LOCATION" "CALL_PHONE" "CAMERA" "VIBRATE" "POST_NOTIFICATIONS" "READ_EXTERNAL_STORAGE" "READ_MEDIA_IMAGES"; do
@@ -70,114 +69,171 @@ jobs:
             echo "Permissions injected successfully!"
           fi
 
+          # Setup Product Flavors and Strings for 4 Apps
+          mkdir -p android/app/src/customer/res/values
+          mkdir -p android/app/src/kitchen/res/values
+          mkdir -p android/app/src/rider/res/values
+          mkdir -p android/app/src/admin/res/values
+
+          # Customer Strings & Colors
+          cat << 'EOF' > android/app/src/customer/res/values/strings.xml
+          <resources>
+              <string name="app_name">FastBite Food Delivery</string>
+          </resources>
+EOF
+          cat << 'EOF' > android/app/src/customer/res/values/colors.xml
+          <resources>
+              <color name="ic_launcher_background">#f97316</color>
+          </resources>
+EOF
+
+          # Kitchen Strings & Colors
+          cat << 'EOF' > android/app/src/kitchen/res/values/strings.xml
+          <resources>
+              <string name="app_name">FastBite Kitchen KDS</string>
+          </resources>
+EOF
+          cat << 'EOF' > android/app/src/kitchen/res/values/colors.xml
+          <resources>
+              <color name="ic_launcher_background">#e11d48</color>
+          </resources>
+EOF
+
+          # Rider Strings & Colors
+          cat << 'EOF' > android/app/src/rider/res/values/strings.xml
+          <resources>
+              <string name="app_name">FastBite Rider Partner</string>
+          </resources>
+EOF
+          cat << 'EOF' > android/app/src/rider/res/values/colors.xml
+          <resources>
+              <color name="ic_launcher_background">#10b981</color>
+          </resources>
+EOF
+
+          # Admin Strings & Colors
+          cat << 'EOF' > android/app/src/admin/res/values/strings.xml
+          <resources>
+              <string name="app_name">FastBite Super Manager</string>
+          </resources>
+EOF
+          cat << 'EOF' > android/app/src/admin/res/values/colors.xml
+          <resources>
+              <color name="ic_launcher_background">#6366f1</color>
+          </resources>
+EOF
+
           GRADLE_FILE="android/app/build.gradle"
           if [ -f "$GRADLE_FILE" ]; then
             echo "Injecting Product Flavors into $GRADLE_FILE..."
-            # Inject flavorDimensions
-            sed -i '/defaultConfig {/i \    flavorDimensions "default"' "$GRADLE_FILE"
             
-            # Inject productFlavors block before buildTypes
-            FLAVORS_BLOCK="    productFlavors {\n        customer {\n            dimension \"default\"\n            applicationIdSuffix \".customer\"\n            manifestPlaceholders = [appName: \"FastBite Customer\"]\n        }\n        kitchen {\n            dimension \"default\"\n            applicationIdSuffix \".kitchen\"\n            manifestPlaceholders = [appName: \"FastBite Kitchen\"]\n        }\n        rider {\n            dimension \"default\"\n            applicationIdSuffix \".rider\"\n            manifestPlaceholders = [appName: \"FastBite Rider\"]\n        }\n        admin {\n            dimension \"default\"\n            applicationIdSuffix \".admin\"\n            manifestPlaceholders = [appName: \"FastBite Admin\"]\n        }\n    }"
-            sed -i "/buildTypes {/i $FLAVORS_BLOCK" "$GRADLE_FILE"
+            # Ensure flavorDimensions is present
+            if ! grep -q "flavorDimensions" "$GRADLE_FILE"; then
+              sed -i '/defaultConfig {/i \    flavorDimensions "default"' "$GRADLE_FILE"
+            fi
+            
+            # Inject productFlavors block if missing
+            if ! grep -q "productFlavors" "$GRADLE_FILE"; then
+              FLAVORS_BLOCK="    productFlavors {\n        customer {\n            dimension \"default\"\n            applicationId \"com.fastbite.customer.app\"\n            manifestPlaceholders = [appName: \"FastBite Food Delivery\"]\n        }\n        kitchen {\n            dimension \"default\"\n            applicationId \"com.fastbite.kitchen.kds\"\n            manifestPlaceholders = [appName: \"FastBite Kitchen KDS\"]\n        }\n        rider {\n            dimension \"default\"\n            applicationId \"com.fastbite.rider.partner\"\n            manifestPlaceholders = [appName: \"FastBite Rider Partner\"]\n        }\n        admin {\n            dimension \"default\"\n            applicationId \"com.fastbite.admin.manager\"\n            manifestPlaceholders = [appName: \"FastBite Super Manager\"]\n        }\n    }"
+              sed -i "/buildTypes {/i $FLAVORS_BLOCK" "$GRADLE_FILE"
+            fi
           fi
 
-      - name: Build Android APK with Gradle
+      - name: Build Android APKs with Gradle
         run: |
-          if [ ! -d "android" ]; then
-            echo "Error: android directory does not exist. Capacitor add may have failed."
-            exit 1
-          fi
           cd android
           
           if [ ! -f "settings.gradle" ]; then
-            echo "settings.gradle is missing. Creating a default one..."
             cat << 'SET_EOF' > settings.gradle
-          include ':app'
+include ':app'
 
-          if (file('capacitor-cordova-android-plugins').exists()) {
-              include ':capacitor-cordova-android-plugins'
-              project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
-          }
+if (file('capacitor-cordova-android-plugins').exists()) {
+    include ':capacitor-cordova-android-plugins'
+    project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
+}
 
-          def capacitorSettings = file('capacitor.settings.gradle')
-          if (capacitorSettings.exists()) {
-              apply from: capacitorSettings
-          }
-          SET_EOF
-          else
-            if ! grep -q "capacitor-cordova-android-plugins" settings.gradle; then
-              if [ -d "capacitor-cordova-android-plugins" ]; then
-                echo "Adding capacitor-cordova-android-plugins to settings.gradle..."
-                cat << 'SET_EOF' >> settings.gradle
-
-          if (file('capacitor-cordova-android-plugins').exists()) {
-              include ':capacitor-cordova-android-plugins'
-              project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')
-          }
-          SET_EOF
-              fi
-            fi
+def capacitorSettings = file('capacitor.settings.gradle')
+if (capacitorSettings.exists()) {
+    apply from: capacitorSettings
+}
+SET_EOF
           fi
           
           if [ ! -f "variables.gradle" ]; then
-            echo "variables.gradle is missing. Creating a default one..."
             cat << 'VAR_EOF' > variables.gradle
-          ext {
-              minSdkVersion = 22
-              compileSdkVersion = 36
-              targetSdkVersion = 35
-              androidxActivityVersion = '1.8.0'
-              androidxAppCompatVersion = '1.6.1'
-              androidxCoordinatorLayoutVersion = '1.2.0'
-              androidxCoreVersion = '1.12.0'
-              androidxFragmentVersion = '1.6.2'
-              coreSplashScreenVersion = '1.0.1'
-              androidxWebkitVersion = '1.9.0'
-              junitVersion = '4.13.2'
-              androidxJunitVersion = '1.1.5'
-              androidxEspressoCoreVersion = '3.5.1'
-              cordovaAndroidVersion = '10.1.1'
-          }
-          VAR_EOF
+ext {
+    minSdkVersion = 22
+    compileSdkVersion = 36
+    targetSdkVersion = 35
+    androidxActivityVersion = '1.8.0'
+    androidxAppCompatVersion = '1.6.1'
+    androidxCoordinatorLayoutVersion = '1.2.0'
+    androidxCoreVersion = '1.12.0'
+    androidxFragmentVersion = '1.6.2'
+    coreSplashScreenVersion = '1.0.1'
+    androidxWebkitVersion = '1.9.0'
+    junitVersion = '4.13.2'
+    androidxJunitVersion = '1.1.5'
+    androidxEspressoCoreVersion = '3.5.1'
+    cordovaAndroidVersion = '10.1.1'
+}
+VAR_EOF
           fi
           
-          echo "Updating compileSdkVersion and compileSdk to 36 in all Gradle configuration files..."
           find . -name "*.gradle" -exec sed -i 's/compileSdkVersion = .*/compileSdkVersion = 36/g' {} +
           find . -name "*.gradle" -exec sed -i 's/compileSdkVersion 35/compileSdkVersion 36/g' {} +
           find . -name "*.gradle" -exec sed -i 's/compileSdk 35/compileSdk 36/g' {} +
           find . -name "*.gradle" -exec sed -i 's/compileSdk = .*/compileSdk = 36/g' {} +
           
           if ! grep -q "resolutionStrategy" build.gradle; then
-            echo "Adding Kotlin stdlib resolution strategy to build.gradle..."
             cat << 'BUILD_EOF' >> build.gradle
 
-          allprojects {
-              configurations.all {
-                  resolutionStrategy {
-                      force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
-                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
-                      force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
-                  }
-              }
-          }
-          BUILD_EOF
+allprojects {
+    configurations.all {
+        resolutionStrategy {
+            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'
+            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'
+        }
+    }
+}
+BUILD_EOF
           fi
           
-          echo "Android folder structure:"
-          ls -la
-          
-          echo "Cleaning corrupted Gradle wrapper..."
           rm -rf gradle/wrapper/gradle-wrapper.jar
-          
-          echo "Generating Gradle wrapper..."
           gradle wrapper --gradle-version 8.13
-          
           chmod +x gradlew
-          # assembleDebug will now build all flavors: customer, kitchen, rider, admin
+          
+          # Assemble debug APKs for all flavors
           ./gradlew clean assembleDebug --stacktrace
 
-      - name: Upload APK Artifacts
+      - name: Upload Customer APK
         uses: actions/upload-artifact@v4
         with:
-          name: FastBite-All-Flavors-APKs
+          name: FastBite-Customer-App
+          path: android/app/build/outputs/apk/customer/debug/*.apk
+
+      - name: Upload Kitchen KDS APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastBite-Kitchen-KDS
+          path: android/app/build/outputs/apk/kitchen/debug/*.apk
+
+      - name: Upload Rider Partner APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastBite-Rider-Partner
+          path: android/app/build/outputs/apk/rider/debug/*.apk
+
+      - name: Upload Admin Manager APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastBite-Admin-Manager
+          path: android/app/build/outputs/apk/admin/debug/*.apk
+
+      - name: Upload All APKs Combined
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastBite-All-4-APKs
           path: android/app/build/outputs/apk/*/debug/*.apk
+

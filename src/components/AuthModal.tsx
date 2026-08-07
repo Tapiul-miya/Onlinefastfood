@@ -69,6 +69,56 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   // Auth Action Mode per role: 'login' or 'signup'
   const [authAction, setAuthAction] = useState<'login' | 'signup'>('login');
 
+  // Local helper functions for Registered Users DB
+  const getRegisteredUsers = () => {
+    try {
+      const raw = localStorage.getItem('fastbite_registered_users');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    return [
+      {
+        id: 'demo_cust_101',
+        role: 'customer',
+        name: 'তানভীর আহমেদ',
+        phone: '9830098300',
+        email: 'user@example.com',
+        address: 'সল্টলেক সেক্টর ৫, কলকাতা',
+        avatar: AVATAR_PRESETS[0],
+      },
+      {
+        id: 'demo_kit_101',
+        role: 'kitchen',
+        name: 'শেফ রাজিব রায়',
+        kitchenId: 'KITCHEN-01',
+        chefPin: '1234',
+        avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300',
+      },
+      {
+        id: 'demo_drv_101',
+        role: 'driver',
+        name: 'রুপম ব্যানার্জী',
+        phone: '9831099482',
+        vehiclePlate: 'WB-02-AK-4819',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
+      }
+    ];
+  };
+
+  const saveRegisteredUser = (userRecord: any) => {
+    const existing = getRegisteredUsers();
+    const updated = [userRecord, ...existing.filter((u: any) => u.id !== userRecord.id)];
+    try {
+      localStorage.setItem('fastbite_registered_users', JSON.stringify(updated));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   // Customer State
   const [custLoginMethod, setCustLoginMethod] = useState<'otp' | 'email'>('otp');
   const [phone, setPhone] = useState('');
@@ -215,6 +265,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMsg('সঠিক ১০ ডিজিটের মোবাইল নম্বর প্রদান করুন');
       return;
     }
+
+    // Check if phone number exists in registered users
+    const registered = getRegisteredUsers();
+    const cleanEntered = phone.replace(/\D/g, '');
+    const userFound = registered.find((u: any) => {
+      if (u.role !== 'customer') return false;
+      const cleanStored = (u.phone || '').replace(/\D/g, '');
+      return cleanStored && (cleanStored.endsWith(cleanEntered) || cleanEntered.endsWith(cleanStored));
+    });
+
+    if (!userFound) {
+      setErrorMsg('এই মোবাইল নম্বর দিয়ে কোনো অ্যাকাউন্ট রেজিস্টার করা নেই! সাইন আপ ছাড়া সরাসরি লগইন বন্ধ আছে। অনুগ্রহ করে "নতুন সাইন আপ (Signup)" ট্যাবে গিয়ে অ্যাকাউন্ট খুলুন।');
+      soundManager.playChime('click');
+      return;
+    }
+
     setErrorMsg('');
     setIsLoading(true);
     soundManager.playChime('click');
@@ -234,19 +300,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMsg('ভুল ওটিপি (OTP)! আবার চেষ্টা করুন');
       return;
     }
+
+    const registered = getRegisteredUsers();
+    const cleanEntered = phone.replace(/\D/g, '');
+    const userFound = registered.find((u: any) => {
+      if (u.role !== 'customer') return false;
+      const cleanStored = (u.phone || '').replace(/\D/g, '');
+      return cleanStored && (cleanStored.endsWith(cleanEntered) || cleanEntered.endsWith(cleanStored));
+    });
+
+    if (!userFound) {
+      setErrorMsg('এই নম্বরে কোনো অ্যাকাউন্ট পাওয়া যায়নি! আগে "নতুন সাইন আপ (Signup)" করুন।');
+      return;
+    }
+
     setIsLoading(true);
     soundManager.playChime('click');
 
     setTimeout(() => {
       setIsLoading(false);
       const newUser: UserProfile = {
-        id: `usr_${Date.now()}`,
-        name: countryCode === '+91' ? 'User' : 'Guest',
-        phone: `${countryCode} ${phone}`,
+        id: userFound.id || `usr_${Date.now()}`,
+        name: userFound.name || 'User',
+        phone: userFound.phone || `${countryCode} ${phone}`,
         role: 'customer',
-        email: 'user@example.com',
-        address: 'West Bengal, India',
-        avatar: AVATAR_PRESETS[0],
+        email: userFound.email || 'user@example.com',
+        address: userFound.address || 'West Bengal, India',
+        avatar: userFound.avatar || AVATAR_PRESETS[0],
         isLoggedIn: true,
       };
       onLogin(newUser);
@@ -262,20 +342,32 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMsg('ইমেইল ও পাসওয়ার্ড প্রদান করুন');
       return;
     }
+
+    // Check registered accounts
+    const registered = getRegisteredUsers();
+    const userFound = registered.find((u: any) => 
+      u.role === 'customer' && u.email && u.email.trim().toLowerCase() === custEmail.trim().toLowerCase()
+    );
+
+    if (!userFound) {
+      setErrorMsg('এই ইমেইল দিয়ে কোনো অ্যাকাউন্ট রেজিস্টার করা নেই! সাইন আপ ছাড়া সরাসরি লগইন করা যাবে না। অনুগ্রহ করে আগে "নতুন সাইন আপ (Signup)" করুন।');
+      soundManager.playChime('click');
+      return;
+    }
+
     setIsLoading(true);
     soundManager.playChime('click');
 
     setTimeout(() => {
       setIsLoading(false);
-      const userName = custEmail.split('@')[0];
       const newUser: UserProfile = {
-        id: `usr_em_${Date.now()}`,
-        name: userName.charAt(0).toUpperCase() + userName.slice(1),
-        phone: '',
+        id: userFound.id || `usr_em_${Date.now()}`,
+        name: userFound.name || custEmail.split('@')[0],
+        phone: userFound.phone || '',
         role: 'customer',
-        email: custEmail,
-        address: '',
-        avatar: AVATAR_PRESETS[1],
+        email: userFound.email || custEmail,
+        address: userFound.address || '',
+        avatar: userFound.avatar || AVATAR_PRESETS[1],
         isLoggedIn: true,
       };
       onLogin(newUser);
@@ -291,19 +383,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       setErrorMsg('আপনার নাম এবং মোবাইল নম্বর প্রদান করুন');
       return;
     }
+
     setIsLoading(true);
     soundManager.playChime('click');
 
     setTimeout(() => {
       setIsLoading(false);
-      const newUser: UserProfile = {
-        id: `usr_signup_${Date.now()}`,
-        name: custName,
-        phone: `${countryCode} ${phone}`,
+      const newUserId = `usr_signup_${Date.now()}`;
+      const newUserRecord = {
+        id: newUserId,
         role: 'customer',
-        email: custEmail || `${custName.toLowerCase().replace(/\s+/g, '')}@example.com`,
-        address: custAddress || '',
+        name: custName.trim(),
+        phone: `${countryCode} ${phone}`.trim(),
+        email: custEmail.trim() || `${custName.toLowerCase().replace(/\s+/g, '')}@example.com`,
+        address: custAddress.trim() || '',
         avatar: AVATAR_PRESETS[2],
+      };
+
+      // Save to Registered Users store
+      saveRegisteredUser(newUserRecord);
+
+      const newUser: UserProfile = {
+        ...newUserRecord,
+        role: 'customer',
         isLoggedIn: true,
       };
       onLogin(newUser);
@@ -312,58 +414,153 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }, 700);
   };
 
-  // 2. Kitchen Staff Login
+  // 2. Kitchen Staff Login & Signup
   const handleKitchenAuth = (e: React.FormEvent) => {
     e.preventDefault();
     if (!kitchenId || !chefPin) {
       setErrorMsg('কিচেন আইডি এবং শেফ পিন কোড লিখুন');
       return;
     }
-    setIsLoading(true);
-    soundManager.playChime('click');
 
-    setTimeout(() => {
-      setIsLoading(false);
-      const newUser: UserProfile = {
-        id: `kit_${Date.now()}`,
-        name: chefName || 'Chef',
-        phone: '',
-        role: 'kitchen',
-        restaurantId: kitchenId,
-        avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300',
-        isLoggedIn: true,
-      };
-      onLogin(newUser);
-      soundManager.playChime('kitchen_ready');
-      onClose();
-    }, 700);
+    const registered = getRegisteredUsers();
+
+    if (authAction === 'login') {
+      const userFound = registered.find((u: any) => 
+        u.role === 'kitchen' && u.kitchenId && u.kitchenId.trim().toLowerCase() === kitchenId.trim().toLowerCase()
+      );
+
+      if (!userFound) {
+        setErrorMsg('এই কিচেন আইডি দিয়ে কোনো রেজিস্টার্ড অ্যাকাউন্ট পাওয়া যায়নি! আগে "নতুন সাইন আপ (Signup)" সিলেক্ট করে রেজিস্ট্রেশন সম্পন্ন করুন।');
+        soundManager.playChime('click');
+        return;
+      }
+
+      setIsLoading(true);
+      soundManager.playChime('click');
+
+      setTimeout(() => {
+        setIsLoading(false);
+        const newUser: UserProfile = {
+          id: userFound.id || `kit_${Date.now()}`,
+          name: userFound.name || chefName || 'Chef',
+          phone: '',
+          role: 'kitchen',
+          restaurantId: userFound.kitchenId || kitchenId,
+          avatar: userFound.avatar || 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300',
+          isLoggedIn: true,
+        };
+        onLogin(newUser);
+        soundManager.playChime('kitchen_ready');
+        onClose();
+      }, 700);
+    } else {
+      // Signup
+      setIsLoading(true);
+      soundManager.playChime('click');
+
+      setTimeout(() => {
+        setIsLoading(false);
+        const newKitRecord = {
+          id: `kit_${Date.now()}`,
+          role: 'kitchen',
+          name: chefName.trim() || 'Chef',
+          kitchenId: kitchenId.trim(),
+          chefPin: chefPin.trim(),
+          avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300',
+        };
+        saveRegisteredUser(newKitRecord);
+
+        const newUser: UserProfile = {
+          id: newKitRecord.id,
+          name: newKitRecord.name,
+          phone: '',
+          role: 'kitchen',
+          restaurantId: newKitRecord.kitchenId,
+          avatar: newKitRecord.avatar,
+          isLoggedIn: true,
+        };
+        onLogin(newUser);
+        soundManager.playChime('kitchen_ready');
+        onClose();
+      }, 700);
+    }
   };
 
-  // 3. Driver Rider Login
+  // 3. Driver Rider Login & Signup
   const handleRiderAuth = (e: React.FormEvent) => {
     e.preventDefault();
     if (!riderPhone || !vehiclePlate) {
       setErrorMsg('মোবাইল নম্বর ও গাড়ির নম্বর প্রদান করুন');
       return;
     }
-    setIsLoading(true);
-    soundManager.playChime('click');
 
-    setTimeout(() => {
-      setIsLoading(false);
-      const newUser: UserProfile = {
-        id: `drv_${Date.now()}`,
-        name: riderName || 'Delivery Partner',
-        phone: `+91 ${riderPhone}`,
-        role: 'driver',
-        vehicleNumber: vehiclePlate,
-        avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=300',
-        isLoggedIn: true,
-      };
-      onLogin(newUser);
-      soundManager.playChime('driver_pickup');
-      onClose();
-    }, 700);
+    const registered = getRegisteredUsers();
+
+    if (authAction === 'login') {
+      const cleanEnteredPhone = riderPhone.replace(/\D/g, '');
+      const userFound = registered.find((u: any) => {
+        if (u.role !== 'driver') return false;
+        const cleanStoredPhone = (u.phone || '').replace(/\D/g, '');
+        const plateMatch = u.vehiclePlate && u.vehiclePlate.trim().toLowerCase() === vehiclePlate.trim().toLowerCase();
+        const phoneMatch = cleanStoredPhone && (cleanStoredPhone.endsWith(cleanEnteredPhone) || cleanEnteredPhone.endsWith(cleanStoredPhone));
+        return plateMatch || phoneMatch;
+      });
+
+      if (!userFound) {
+        setErrorMsg('এই মোবাইল বা গাড়ি নম্বর দিয়ে কোনো রাইডার অ্যাকাউন্ট পাওয়া যায়নি! আগে "নতুন সাইন আপ (Signup)" ট্যাবে অনবোর্ডিং সম্পন্ন করুন।');
+        soundManager.playChime('click');
+        return;
+      }
+
+      setIsLoading(true);
+      soundManager.playChime('click');
+
+      setTimeout(() => {
+        setIsLoading(false);
+        const newUser: UserProfile = {
+          id: userFound.id || `drv_${Date.now()}`,
+          name: userFound.name || riderName || 'Delivery Partner',
+          phone: userFound.phone || `+91 ${riderPhone}`,
+          role: 'driver',
+          vehicleNumber: userFound.vehiclePlate || vehiclePlate,
+          avatar: userFound.avatar || 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=300',
+          isLoggedIn: true,
+        };
+        onLogin(newUser);
+        soundManager.playChime('driver_pickup');
+        onClose();
+      }, 700);
+    } else {
+      // Signup
+      setIsLoading(true);
+      soundManager.playChime('click');
+
+      setTimeout(() => {
+        setIsLoading(false);
+        const newDrvRecord = {
+          id: `drv_${Date.now()}`,
+          role: 'driver',
+          name: riderName.trim() || 'Delivery Partner',
+          phone: `+91 ${riderPhone}`.trim(),
+          vehiclePlate: vehiclePlate.trim(),
+          avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=300',
+        };
+        saveRegisteredUser(newDrvRecord);
+
+        const newUser: UserProfile = {
+          id: newDrvRecord.id,
+          name: newDrvRecord.name,
+          phone: newDrvRecord.phone,
+          role: 'driver',
+          vehicleNumber: newDrvRecord.vehiclePlate,
+          avatar: newDrvRecord.avatar,
+          isLoggedIn: true,
+        };
+        onLogin(newUser);
+        soundManager.playChime('driver_pickup');
+        onClose();
+      }, 700);
+    }
   };
 
   // 4. Admin Login
@@ -1348,102 +1545,43 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {/* 4. ADMIN APP AUTH                                        */}
               {/* ======================================================== */}
               {selectedAppRole === 'admin' && (
-                <form onSubmit={handleAdminAuth} className="space-y-3.5">
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 p-3 rounded-xl text-xs text-emerald-300 space-y-1">
-                    <div className="font-bold flex items-center gap-1.5">
+                <div className="space-y-4">
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-xl text-xs text-emerald-300 space-y-2">
+                    <div className="font-bold text-sm flex items-center gap-1.5 text-emerald-400">
                       <Settings className="w-4 h-4 text-emerald-400" />
-                      <span>এডমিন ও ম্যানেজমেন্ট প্যানেল:</span>
+                      <span>এডমিন প্যানেলে উন্মুক্ত প্রবেশাধিকার</span>
                     </div>
-                    <p className="text-[11px] text-zinc-300">
-                      মেনু আইটেম এডিটিং, প্রাইসিং, ড্রাইভার এসাইন এবং সিস্টেম ওভারভিউয়ের জন্য এডমিন কী প্রদান করুন।
+                    <p className="text-xs text-zinc-300 leading-relaxed">
+                      এডমিন প্যানেল থেকে লগইন ও সাইনআপ সিস্টেম তুলে দেওয়া হয়েছে। আপনি সরাসরি সুপার এডমিন হিসেবে প্রবেশ করতে পারবেন।
                     </p>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-400 mb-1">এডমিনের নাম</label>
-                    <input
-                      type="text"
-                      value={adminName}
-                      onChange={(e) => setAdminName(e.target.value)}
-                      placeholder="Enter Admin Name"
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-400 mb-1">এডমিন কর্পোরেট ইমেইল</label>
-                    <input
-                      type="email"
-                      value={adminEmail}
-                      onChange={(e) => setAdminEmail(e.target.value)}
-                      placeholder="admin@example.com"
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-emerald-500"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-400 mb-1">এডমিন মাস্টার সিকিউরিটি পিন / Key</label>
-                    <input
-                      type="password"
-                      value={adminKey}
-                      onChange={(e) => setAdminKey(e.target.value)}
-                      placeholder="ADMIN-KEY-XXXX"
-                      className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-2 text-sm text-emerald-400 font-mono font-bold focus:outline-none focus:border-emerald-500"
-                      required
-                    />
-                  </div>
-
                   <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                    type="button"
+                    onClick={() => {
+                      soundManager.playChime('click');
+                      const adminUser: UserProfile = {
+                        id: 'ADM-2026',
+                        name: 'সুপার এডমিন রানা ব্যানার্জী (Super Admin)',
+                        phone: '+91 98300-00100',
+                        role: 'admin',
+                        email: 'admin.fastbite@foodexpress.in',
+                        employeeId: 'ADMIN-SYS-2026',
+                        address: 'সল্টলেক সেক্টর ৫, কলকাতা',
+                        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300',
+                        isLoggedIn: true,
+                      };
+                      onLogin(adminUser);
+                      soundManager.playChime('order_placed');
+                      onClose();
+                    }}
+                    className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-900/30 transition-all flex items-center justify-center gap-2"
                   >
-                    {isLoading ? (
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    ) : (
-                      <span>এডমিন প্যানেলে প্রবেশ করুন</span>
-                    )}
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>সরাসরি এডমিন প্যানেলে প্রবেশ করুন</span>
                   </button>
-                </form>
+                </div>
               )}
-
-              {/* Language & Currency Preferences Section */}
-              <div className="bg-zinc-950 p-3 rounded-2xl border border-zinc-800 space-y-2 text-xs mt-3">
-                <div className="flex items-center gap-1.5 font-bold text-zinc-400 text-[11px]">
-                  <Globe className="w-3.5 h-3.5 text-orange-400" />
-                  <span>ভাষা ও কারেন্সি সিলেক্ট করুন</span>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => { if (onSelectLang) onSelectLang('bn'); soundManager.playChime('click'); }}
-                      className={`flex-1 py-1 rounded-lg text-[11px] font-bold ${lang === 'bn' ? 'bg-orange-600 text-white' : 'text-zinc-400'}`}
-                    >
-                      বাংলা
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { if (onSelectLang) onSelectLang('en'); soundManager.playChime('click'); }}
-                      className={`flex-1 py-1 rounded-lg text-[11px] font-bold ${lang === 'en' ? 'bg-orange-600 text-white' : 'text-zinc-400'}`}
-                    >
-                      EN
-                    </button>
-                  </div>
-
-                  <div className="flex bg-zinc-900 p-1 rounded-xl border border-zinc-800 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => { if (onSelectCurrency) onSelectCurrency('INR'); soundManager.playChime('click'); }}
-                      className="flex-1 py-1 rounded-lg text-[11px] font-bold bg-amber-600 text-white"
-                    >
-                      ₹ INR
-                    </button>
-                  </div>
-                </div>
-              </div>
             </>
           )}
 

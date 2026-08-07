@@ -274,9 +274,10 @@ export const MenuSection: React.FC<MenuSectionProps> = ({
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => { soundManager.playChime('click'); onSelectItem(item); }}
-                      className="hidden sm:block px-2.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold transition-colors border border-zinc-700/60"
+                      className="px-2.5 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold transition-colors shadow-lg shadow-orange-900/20 active:scale-95 flex items-center gap-1.5"
                     >
-                      কাস্টমাইজ
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>অর্ডার (Order)</span>
                     </button>
                   </div>
                 </div>

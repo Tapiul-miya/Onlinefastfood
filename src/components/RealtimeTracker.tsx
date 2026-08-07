@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Clock, Phone, MessageSquare, MapPin, 
+  Clock, Phone, MessageSquare, MapPin, X,
   AlertTriangle, Play, Pause, Sparkles, RefreshCw, ChevronRight,
   ShoppingBag, User, FileText, Store, ChevronDown, ChevronUp, CheckCircle2, Receipt, Tag
 } from 'lucide-react';
@@ -19,6 +19,8 @@ interface RealtimeTrackerProps {
   simSpeed: number;
   onChangeSimSpeed: (speed: number) => void;
   onCompleteDelivery: () => void;
+  onCancelOrder?: (reason?: string) => void;
+  onViewCancelMessage?: () => void;
   lang: Language;
   currency: Currency;
 }
@@ -33,11 +35,16 @@ export const RealtimeTracker: React.FC<RealtimeTrackerProps> = ({
   simSpeed,
   onChangeSimSpeed,
   onCompleteDelivery,
+  onCancelOrder,
+  onViewCancelMessage,
   lang,
   currency,
 }) => {
   const t = TRANSLATIONS[lang].tracker;
   const [showOrderDetails, setShowOrderDetails] = useState(true);
+  const [isCancelPromptOpen, setIsCancelPromptOpen] = useState(false);
+  const [cancelReasonOption, setCancelReasonOption] = useState('ভুল খাবার বা পরিমাণ সিলেক্ট করেছি');
+  const [customReasonText, setCustomReasonText] = useState('');
 
   const STAGES: { id: OrderStatus; label: string; icon: string }[] = [
     { id: 'placed', label: t.placed, icon: '📝' },
@@ -70,7 +77,12 @@ export const RealtimeTracker: React.FC<RealtimeTrackerProps> = ({
               <span className="text-xs text-zinc-400">{t.placedAt} {order.createdAt}</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight mt-1">
-              {order.status === 'delivered' ? (
+              {order.status === 'cancelled' ? (
+                <span className="text-red-400 flex items-center gap-2">
+                  <AlertTriangle className="w-6 h-6 text-red-500 animate-bounce" />
+                  অর্ডার ক্যানসেল করা হয়েছে (Order Cancelled)
+                </span>
+              ) : order.status === 'delivered' ? (
                 <span className="text-emerald-400">🎉 অর্ডার সফলভাবে ডেলিভার করা হয়েছে!</span>
               ) : order.status === 'arriving' ? (
                 <span className="text-amber-400">🔔 ডেলিভারি রাইডার আপনার দরজার বাইরে পৌঁছেছেন!</span>
@@ -82,14 +94,44 @@ export const RealtimeTracker: React.FC<RealtimeTrackerProps> = ({
             </h1>
           </div>
 
-          {/* ETA Card */}
-          <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-3.5 text-right shrink-0 flex sm:flex-col justify-between items-center sm:items-end">
-            <span className="text-xs text-zinc-400 font-medium">{t.estimatedTime}</span>
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-orange-400 animate-pulse" />
-              <span className="text-xl sm:text-2xl font-extrabold font-mono text-orange-400">
-                {order.status === 'delivered' ? '00:00' : `${Math.max(1, order.estimatedDeliveryMinutes)} মি.`}
-              </span>
+          {/* ETA Card & Action */}
+          <div className="flex items-center gap-3 shrink-0">
+            {order.status !== 'delivered' && order.status !== 'cancelled' && onCancelOrder && (
+              <button
+                id="btn-trigger-order-cancel"
+                onClick={() => {
+                  soundManager.playChime('click');
+                  setIsCancelPromptOpen(true);
+                }}
+                className="px-3 py-2 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md hover:border-red-500"
+              >
+                <AlertTriangle className="w-4 h-4 text-red-400" />
+                <span>অর্ডার ক্যানসেল করুন</span>
+              </button>
+            )}
+
+            {order.status === 'cancelled' && onViewCancelMessage && (
+              <button
+                id="btn-view-cancel-msg"
+                onClick={() => {
+                  soundManager.playChime('click');
+                  onViewCancelMessage();
+                }}
+                className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs flex items-center gap-1.5 transition-all shadow-lg animate-pulse"
+              >
+                <FileText className="w-4 h-4" />
+                <span>ক্যানসেল মেসেজ দেখুন</span>
+              </button>
+            )}
+
+            <div className="bg-zinc-800/80 border border-zinc-700/60 rounded-2xl p-3 text-right flex sm:flex-col justify-between items-center sm:items-end">
+              <span className="text-[11px] text-zinc-400 font-medium">{t.estimatedTime}</span>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-orange-400 animate-pulse" />
+                <span className="text-lg sm:text-xl font-extrabold font-mono text-orange-400">
+                  {order.status === 'delivered' || order.status === 'cancelled' ? '00:00' : `${Math.max(1, order.estimatedDeliveryMinutes)} মি.`}
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -512,6 +554,105 @@ export const RealtimeTracker: React.FC<RealtimeTrackerProps> = ({
         </div>
 
       </div>
+
+      {/* Customer Cancellation Prompt Modal */}
+      {isCancelPromptOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div 
+            className="bg-zinc-900 border border-red-500/40 w-full max-w-md rounded-3xl p-5 space-y-4 text-white shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-zinc-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 border border-red-500/30 flex items-center justify-center">
+                  <AlertTriangle className="w-5 h-5 text-red-400" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-white">অর্ডার বাতিল নিশ্চিতকরণ</h3>
+                  <p className="text-xs text-zinc-400">অর্ডারটি ক্যানসেল করার কারণ নির্বাচন করুন</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsCancelPromptOpen(false)}
+                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Reasons options */}
+            <div className="space-y-2 text-xs">
+              {[
+                'ভুল খাবার বা পরিমাণ সিলেক্ট করেছি',
+                'জরুরি কারণে ডেলিভারি ঠিকানা পরিবর্তন দরকার',
+                'অর্ডার ডেলিভারিতে দেরি মনে হচ্ছে',
+                'অন্য খাবার অর্ডার করতে চাই',
+                'অন্যান্য কারণ (নিচে টাইপ করুন)',
+              ].map((reason) => (
+                <label
+                  key={reason}
+                  className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-colors ${
+                    cancelReasonOption === reason
+                      ? 'bg-red-950/60 border-red-500/60 text-white font-bold'
+                      : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:bg-zinc-800/60'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="cancel_reason"
+                    checked={cancelReasonOption === reason}
+                    onChange={() => setCancelReasonOption(reason)}
+                    className="accent-red-500"
+                  />
+                  <span>{reason}</span>
+                </label>
+              ))}
+
+              {cancelReasonOption.includes('অন্যান্য') && (
+                <textarea
+                  value={customReasonText}
+                  onChange={(e) => setCustomReasonText(e.target.value)}
+                  placeholder="আপনার বাতিলের কারণ বিস্তারিত লিখুন..."
+                  rows={2}
+                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-red-500"
+                />
+              )}
+            </div>
+
+            <div className="bg-emerald-950/40 border border-emerald-500/30 p-2.5 rounded-xl text-[11px] text-emerald-300">
+              💳 <strong>রিফান্ড তথ্য:</strong> ক্যানসেল করলে আপনার পরিশোধিত টাকা (১০০% রিফান্ড) ওয়ালেটে তাৎক্ষণিক প্রসেস হবে।
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsCancelPromptOpen(false)}
+                className="w-1/2 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs"
+              >
+                ফিরে যান (Keep Order)
+              </button>
+
+              <button
+                type="button"
+                id="btn-confirm-cancel-order"
+                onClick={() => {
+                  soundManager.playChime('click');
+                  const finalReason = cancelReasonOption.includes('অন্যান্য') && customReasonText.trim()
+                    ? customReasonText.trim()
+                    : cancelReasonOption;
+                  setIsCancelPromptOpen(false);
+                  if (onCancelOrder) {
+                    onCancelOrder(finalReason);
+                  }
+                }}
+                className="w-1/2 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-xs shadow-lg"
+              >
+                হ্যাঁ, ক্যানসেল করুন
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

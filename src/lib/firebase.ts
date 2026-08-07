@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { 
   getFirestore, 
+  initializeFirestore,
   collection, 
   doc, 
   setDoc, 
@@ -12,17 +13,15 @@ import {
   query, 
   orderBy, 
   limit, 
-  serverTimestamp 
+  serverTimestamp
 } from 'firebase/firestore';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDlyhzJqxHu-cEDpE9WWIlUq29lnMW9lFs",
-  authDomain: "gen-lang-client-0881564766.firebaseapp.com",
-  projectId: "gen-lang-client-0881564766",
-  storageBucket: "gen-lang-client-0881564766.firebasestorage.app",
-  messagingSenderId: "13178099429",
-  appId: "1:13178099429:web:bb09e0dfb8cdd4f3f8660c"
-};
+import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, "ai-studio-fastbitedelivery-1a2efdb9-8154-4864-bc49-30c10f8bc480");
+
+// Initialize Firestore with auto-detect long polling for seamless connections in cloud/iframe environments
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId);
+
+

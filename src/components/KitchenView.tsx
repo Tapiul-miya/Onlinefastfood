@@ -147,6 +147,20 @@ export const KitchenView: React.FC<KitchenViewProps> = ({
               3. Ready for Courier 📦 {order.status === 'ready_for_pickup' && '✓'}
             </button>
 
+            <button
+              id="btn-kds-cancel"
+              onClick={() => {
+                soundManager.playChime('click');
+                const reason = prompt('রেস্টুরেন্ট থেকে অর্ডার বাতিলের কারণ লিখুন:', 'রেস্টুরেন্টে এই মুহূর্তে খাবার স্টক শেষ');
+                if (reason) {
+                  onUpdateStatus('cancelled', 'রেস্টুরেন্ট থেকে অর্ডার ক্যানসেল করা হয়েছে', reason);
+                }
+              }}
+              className="px-3 py-2 rounded-xl text-xs font-bold transition-all border bg-red-950/80 hover:bg-red-900 border-red-500/40 text-red-300"
+            >
+              🛑 Cancel Order
+            </button>
+
           </div>
         </div>
 

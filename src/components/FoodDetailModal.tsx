@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, Plus, Minus, Check, Flame, Clock, Star, MessageSquare } from 'lucide-react';
-import { MenuItem, SelectedOption } from '../types';
+import { X, Plus, Minus, Check, Flame, Clock, Star, MessageSquare, AlertTriangle } from 'lucide-react';
+import { MenuItem, SelectedOption, CartItem, UserProfile } from '../types';
 import { Language, Currency, formatPrice, TRANSLATIONS } from '../utils/i18n';
 import { soundManager } from '../utils/audio';
 
@@ -9,6 +9,11 @@ interface FoodDetailModalProps {
   onClose: () => void;
   lang: Language;
   currency: Currency;
+  onPlaceOrder: (item: CartItem) => void;
+  isPartnerOffline: boolean;
+  offlineReason?: string;
+  onOpenAuth: () => void;
+  currentUser: UserProfile;
 }
 
 export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
@@ -16,6 +21,11 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
   onClose,
   lang,
   currency,
+  onPlaceOrder,
+  isPartnerOffline,
+  offlineReason,
+  onOpenAuth,
+  currentUser,
 }) => {
   if (!item) return null;
 
@@ -221,6 +231,14 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-orange-500 transition-colors"
             />
           </div>
+
+          {/* Offline Warning Banner in Modal */}
+          {isPartnerOffline && (
+            <div className="bg-red-950/80 border border-red-500/50 rounded-xl p-3 flex items-center gap-2.5 text-xs text-red-200 mt-4">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 animate-pulse" />
+              <span>{offlineReason || 'কোনো ডেলিভারি রাইডার বা রেস্টুরেন্ট অনলাইনে নেই। সার্ভিস সাময়িকভাবে বন্ধ আছে।'}</span>
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}
@@ -253,6 +271,41 @@ export const FoodDetailModal: React.FC<FoodDetailModalProps> = ({
               <Plus className="w-4 h-4" />
             </button>
           </div>
+
+          <button
+            id="btn-place-order"
+            onClick={() => {
+              if (!currentUser.isLoggedIn) {
+                onOpenAuth();
+                return;
+              }
+              soundManager.playChime('order_placed');
+              onPlaceOrder({
+                cartItemId: `item_${Date.now()}`,
+                menuItem: item,
+                quantity,
+                selectedOptions: selectedList,
+                specialInstructions,
+                itemTotalPrice: totalPrice,
+              });
+            }}
+            disabled={isPartnerOffline}
+            className={`flex-1 flex items-center justify-center gap-2 h-11 rounded-xl font-extrabold text-sm transition-all shadow-lg ${
+              isPartnerOffline
+                ? 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700'
+                : 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-orange-600/20 active:scale-95'
+            }`}
+          >
+            {isPartnerOffline ? (
+              <span>অর্ডার সার্ভিস বন্ধ (Service Offline)</span>
+            ) : (
+              <>
+                <span>Order</span>
+                <span className="w-1 h-1 rounded-full bg-white/40" />
+                <span>{formatPrice(totalPrice, currency)}</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

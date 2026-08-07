@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   ShieldAlert, DollarSign, ShoppingBag, Users, Utensils, Plus, Edit2, Trash2, 
   CheckCircle2, XCircle, RefreshCw, Flame, Globe, MapPin, Search, Tag, Eye,
-  Edit3, ShieldCheck, User
+  Edit3, ShieldCheck, User, AlertTriangle, Smartphone
 } from 'lucide-react';
 import { MenuItem, Order, Driver, OrderStatus, FoodCategory, UserProfile } from '../types';
 import { Language, Currency, formatPrice, TRANSLATIONS } from '../utils/i18n';
@@ -24,6 +24,8 @@ interface AdminViewProps {
   onAssignDriver: (orderId: string, driver: Driver) => void;
   currentUser?: UserProfile | null;
   onOpenAuth?: () => void;
+  onMasterReset?: () => void;
+  onOpenApkModal?: () => void;
 }
 
 export const AdminView: React.FC<AdminViewProps> = ({
@@ -42,6 +44,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onAssignDriver,
   currentUser,
   onOpenAuth,
+  onMasterReset,
+  onOpenApkModal,
 }) => {
   const t = TRANSLATIONS[lang].adminApp;
 
@@ -57,6 +61,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
   // Modal for adding / editing menu item
   const [editingItem, setEditingItem] = useState<Partial<MenuItem> | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+
+  // Master System Reset Confirmation Modal State
+  const [isResetWarningModalOpen, setIsResetWarningModalOpen] = useState<boolean>(false);
+  const [isResetting, setIsResetting] = useState<boolean>(false);
 
   // Stock availability map (local state)
   const [outOfStockIds, setOutOfStockIds] = useState<Record<string, boolean>>({});
@@ -135,39 +143,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </div>
         </div>
 
-        {/* Quick Language & Currency Switcher + Edit Profile */}
-        <div className="flex items-center gap-2 sm:gap-3 bg-black/40 p-2 rounded-2xl border border-white/10 flex-wrap justify-between sm:justify-start">
-          <button
-            onClick={() => {
-              soundManager.playChime('click');
-              if (onOpenAuth) onOpenAuth();
-            }}
-            className="flex-1 sm:flex-none px-2.5 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-400/40 text-purple-200 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
-          >
-            <Edit3 className="w-3.5 h-3.5 text-purple-400" />
-            <span>প্রোফাইল এডিট</span>
-          </button>
-
-          <div className="flex items-center gap-1.5 text-xs">
-            <Globe className="w-3.5 h-3.5 text-orange-400 shrink-0" />
-            <select
-              value={lang}
-              onChange={(e) => onSelectLang(e.target.value as Language)}
-              className="bg-zinc-800 text-white rounded-lg px-2 py-1 border border-zinc-700 text-xs font-bold cursor-pointer"
-            >
-              <option value="bn">বাংলা</option>
-              <option value="en">English</option>
-            </select>
-          </div>
-
-          <select
-            value={currency}
-            onChange={(e) => onSelectCurrency(e.target.value as Currency)}
-            className="bg-zinc-800 text-white rounded-lg px-2 py-1 border border-zinc-700 text-xs font-bold cursor-pointer"
-          >
-            <option value="INR">₹ INR</option>
-          </select>
-        </div>
+        {/* Edit Profile Button */}
+        <button
+          onClick={() => {
+            soundManager.playChime('click');
+            if (onOpenAuth) onOpenAuth();
+          }}
+          className="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-400/40 text-purple-200 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-95"
+        >
+          <Edit3 className="w-3.5 h-3.5 text-purple-400" />
+          <span>প্রোফাইল এডিট</span>
+        </button>
       </div>
 
       {/* Overview Stat Cards */}
@@ -546,6 +532,50 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </button>
               </div>
             </div>
+
+            {/* Multi-App APK Build Section */}
+            {onOpenApkModal && (
+              <div className="pt-6 border-t border-zinc-800 space-y-3">
+                <h3 className="text-orange-400 font-bold flex items-center gap-2 text-sm">
+                  <Smartphone className="w-4 h-4 text-orange-400" />
+                  Android APK Multi-App Build Generator
+                </h3>
+                <p className="text-zinc-400 text-xs leading-relaxed">
+                  কাস্টমার, কিচেন কেডিএস, রাইডার পার্টনার এবং এডমিন - ৪টি আলাদা নাম, প্যাকেজ আইডি ও আলাদা আইকন সহ স্বতন্ত্র APK প্রস্তুত করুন।
+                </p>
+                <button
+                  onClick={() => {
+                    soundManager.playChime('click');
+                    onOpenApkModal();
+                  }}
+                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500 hover:from-orange-600 hover:to-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 active:scale-95 transition-all"
+                >
+                  <Smartphone className="w-4 h-4" />
+                  <span>📱 4-in-1 APK Build Config & Capacitor Exporter Open</span>
+                </button>
+              </div>
+            )}
+
+            {/* Danger Zone / Master Reset */}
+            <div className="pt-6 border-t border-zinc-800">
+              <h3 className="text-red-400 font-bold flex items-center gap-2 mb-3">
+                <ShieldAlert className="w-4 h-4" />
+                Advanced Settings (Danger Zone)
+              </h3>
+              <p className="text-zinc-400 mb-4 leading-relaxed">
+                If you are experiencing state issues or want to wipe all local data and Firestore orders, use the master reset button below.
+              </p>
+              <button
+                onClick={() => {
+                  soundManager.playChime('click');
+                  setIsResetWarningModalOpen(true);
+                }}
+                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-400 hover:text-white font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-lg shadow-red-950/30"
+              >
+                <RefreshCw className="w-4 h-4 text-red-400" />
+                <span>Master System Reset (Clear All Data)</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -665,6 +695,130 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Master System Reset Warning & Confirmation Modal */}
+      {isResetWarningModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-zinc-900 border-2 border-red-500/60 rounded-3xl p-5 sm:p-7 max-w-lg w-full text-white space-y-5 shadow-2xl shadow-red-950/60 max-h-[90vh] overflow-y-auto">
+            
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-zinc-800 pb-3.5">
+              <div className="flex items-center gap-2.5 text-red-400">
+                <div className="p-2.5 rounded-2xl bg-red-500/10 border border-red-500/30">
+                  <ShieldAlert className="w-6 h-6 text-red-500 animate-pulse" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black text-white">সিস্টেম রিসেট সতর্কতা (Master Reset)</h2>
+                  <p className="text-xs text-red-400 font-semibold">বিপদজনক কাজ • Data Wipe Warning</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsResetWarningModalOpen(false)}
+                className="text-zinc-400 hover:text-white p-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Warning Alert Banner */}
+            <div className="bg-gradient-to-r from-red-950/90 to-red-900/40 border border-red-500/50 p-4 rounded-2xl space-y-1.5">
+              <div className="flex items-center gap-2 text-red-300 font-bold text-sm">
+                <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+                <span>গুরুত্বপূর্ণ সতর্কতা (Critical Warning):</span>
+              </div>
+              <p className="text-xs text-red-200/90 leading-relaxed">
+                মাস্টার সিস্টেম রিসেট বাটনে ক্লিক করলে সমস্ত স্থানীয় ও ক্লাউড ডেটা চিরতরে মুছে ফেলা হবে। এই পদক্ষেপটি অনুলঙ্ঘনীয় এবং পরবর্তীতে এটি আর ফিরিয়ে আনা সম্ভব নয়!
+              </p>
+            </div>
+
+            {/* Detailed Consequences List */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-zinc-300 uppercase tracking-wider">রিসেট সম্পন্ন হলে যা যা ঘটে যাবে:</h3>
+              
+              <div className="space-y-2 text-xs">
+                <div className="flex items-start gap-3 p-3 bg-zinc-950/80 rounded-xl border border-zinc-800">
+                  <span className="text-base shrink-0">🗑️</span>
+                  <div>
+                    <p className="font-bold text-zinc-200">১. লোকাল স্টোরেজ ও সেশন ক্লিয়ার (Clear Local Storage)</p>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">
+                      আপনার সমস্ত লগইন সেশন, প্রোফাইল ডাটা, কারেন্ট রোল এবং লোকাল পুশ নোটিফিকেশন সিস্টেম প্রারম্ভিক অবস্থায় রিসেট হবে।
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-zinc-950/80 rounded-xl border border-zinc-800">
+                  <span className="text-base shrink-0">☁️</span>
+                  <div>
+                    <p className="font-bold text-zinc-200">২. ক্লাউড ফায়ারস্টোর ডাটাবেস রিসেট (Firestore Orders Clean)</p>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">
+                      ফায়ারস্টোর ক্লাউডে জমা থাকা সমস্ত সক্রিয় অর্ডার এবং অর্ডার হিস্ট্রি স্থায়ীভাবে মুছে ডিলিট হয়ে যাবে।
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-zinc-950/80 rounded-xl border border-zinc-800">
+                  <span className="text-base shrink-0">🔄</span>
+                  <div>
+                    <p className="font-bold text-zinc-200">৩. কাস্টম স্টেট ও কনফিগারেশন রিসেট (Reset Defaults)</p>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">
+                      রেস্তোরাঁর খাদ্য তালিকা, রাইডার তালিকা এবং এডমিনের সমস্ত পরিবর্তনকৃত মান ডিফল্ট অবস্থায় ফিরে আসবে।
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-3 p-3 bg-zinc-950/80 rounded-xl border border-zinc-800">
+                  <span className="text-base shrink-0">⚡</span>
+                  <div>
+                    <p className="font-bold text-zinc-200">৪. অ্যাপ্লিকেশন অটোমেটিক রিলোড (App Reload)</p>
+                    <p className="text-zinc-400 text-[11px] mt-0.5">
+                      ডেটা মোছার কাজ শেষ হওয়া মাত্রই পুরো অ্যাপটি ফ্রেশভাবে পুনরায় রিলোড হবে।
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsResetWarningModalOpen(false)}
+                className="flex-1 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-xs transition-all text-center"
+              >
+                বাতিল করুন (Cancel)
+              </button>
+
+              <button
+                type="button"
+                disabled={isResetting}
+                onClick={async () => {
+                  setIsResetting(true);
+                  soundManager.playChime('click');
+                  if (onMasterReset) {
+                    await onMasterReset();
+                  }
+                  setIsResetting(false);
+                  setIsResetWarningModalOpen(false);
+                }}
+                className="flex-1 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition-all shadow-lg shadow-red-900/40 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                {isResetting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>রিসেট হচ্ছে...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>হ্যাঁ, নিশ্চিতভাবে রিসেট করুন</span>
+                  </>
+                )}
+              </button>
+            </div>
+
           </div>
         </div>
       )}

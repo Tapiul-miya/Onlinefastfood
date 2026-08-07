@@ -13,7 +13,7 @@ import {
 import { Language, Currency, formatPrice, TRANSLATIONS } from './utils/i18n';
 import { soundManager } from './utils/audio';
 import { db } from './lib/firebase';
-import { collection, doc, setDoc, updateDoc, onSnapshot, query } from 'firebase/firestore';
+import { collection, doc, setDoc, updateDoc, onSnapshot, query, deleteDoc, getDocs } from 'firebase/firestore';
 
 import { Header } from './components/Header';
 import { MenuSection } from './components/MenuSection';
@@ -26,61 +26,64 @@ import { ChatModal } from './components/ChatModal';
 import { OrderHistoryModal } from './components/OrderHistoryModal';
 import { AuthModal } from './components/AuthModal';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
+import { CancelledOrderModal } from './components/CancelledOrderModal';
+import { ApkBuildModal } from './components/ApkBuildModal';
+import { updateAppTitleAndIcon } from './utils/apkConfigs';
 
 import { 
-  Flame, History, Sparkles, ShoppingBag, ArrowRight, Utensils, Bike, MapPin, Compass, ShieldCheck, Lock
+  Flame, History, Sparkles, ShoppingBag, ArrowRight, Utensils, Bike, MapPin, Compass, ShieldCheck, Lock, AlertTriangle
 } from 'lucide-react';
 
 const INITIAL_ROLE_PROFILES: Record<UserRole, UserProfile> = {
   customer: {
-    id: '',
-    name: '',
-    phone: '',
+    id: 'usr_customer_01',
+    name: 'অর্ণব ব্যানার্জী (Arnab Banerjee)',
+    phone: '+91 98301-88220',
     role: 'customer',
-    email: '',
-    address: '',
+    email: 'arnab.kolkata@example.com',
+    address: 'সল্টলেক সেক্টর ৫, ইলেকট্রনিক্স কমপ্লেক্স, কলকাতা (Salt Lake Sector V, Kolkata)',
     avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
-    isLoggedIn: false,
+    isLoggedIn: true,
   },
   driver: {
-    id: '',
-    name: '',
-    phone: '',
+    id: 'drv_01',
+    name: 'রুপম ব্যানার্জী (Rider Rupam Banerjee)',
+    phone: '+91 98310-99482',
     role: 'driver',
-    email: '',
-    address: '',
+    email: 'rider.rupam@fastbite.in',
+    address: 'সল্টলেক বাস ডিপো, কলকাতা',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
-    vehicleNumber: '',
-    employeeId: '',
-    assignedHub: '',
-    rating: 5.0,
-    tripsCompleted: 0,
-    isDutyActive: false,
-    isLoggedIn: false,
+    vehicleNumber: 'WB-02-AK-4819',
+    employeeId: 'RIDER-KOL-102',
+    assignedHub: 'সল্টলেক হাব',
+    rating: 4.95,
+    tripsCompleted: 1840,
+    isDutyActive: true,
+    isLoggedIn: true,
   },
   kitchen: {
-    id: '',
-    name: '',
-    phone: '',
+    id: 'KITCHEN-01',
+    name: 'শেফ রাজিব রায় (Chef Rajib Roy)',
+    phone: '+91 98300-11223',
     role: 'kitchen',
-    email: '',
-    restaurantId: '',
-    employeeId: '',
-    address: '',
+    email: 'chef.kolkata@fastbite.in',
+    restaurantId: 'KITCHEN-KOL-01',
+    employeeId: 'KITCHEN-KOL-01',
+    address: 'পার্ক স্ট্রিট কিচেন হাব, কলকাতা',
     avatar: 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300',
-    isLoggedIn: false,
+    isLoggedIn: true,
   },
   admin: {
-    id: '',
-    name: '',
-    phone: '',
+    id: 'ADM-2026',
+    name: 'সুপার এডমিন রানা ব্যানার্জী (Super Admin)',
+    phone: '+91 98300-00100',
     role: 'admin',
-    email: '',
-    employeeId: '',
-    address: '',
+    email: 'admin.fastbite@foodexpress.in',
+    employeeId: 'ADMIN-SYS-2026',
+    address: 'সল্টলেক সেক্টর ৫, কলকাতা',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300',
     securityKey: '',
-    isLoggedIn: false,
+    isLoggedIn: true,
   },
 };
 
@@ -89,7 +92,23 @@ export default function App() {
   const [roleProfiles, setRoleProfiles] = useState<Record<UserRole, UserProfile>>(() => {
     try {
       const saved = localStorage.getItem('fastbite_role_profiles');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          ...INITIAL_ROLE_PROFILES,
+          ...parsed,
+          kitchen: {
+            ...INITIAL_ROLE_PROFILES.kitchen,
+            ...(parsed.kitchen || {}),
+            isLoggedIn: parsed.kitchen?.isLoggedIn !== false,
+          },
+          driver: {
+            ...INITIAL_ROLE_PROFILES.driver,
+            ...(parsed.driver || {}),
+            isLoggedIn: parsed.driver?.isLoggedIn !== false,
+          },
+        };
+      }
     } catch (e) {
       console.error(e);
     }
@@ -140,6 +159,17 @@ export default function App() {
     deliveryAddress: string;
     estimatedMinutes: number;
   } | null>(null);
+
+  // Order Cancellation Modal state
+  const [cancelledModalOrder, setCancelledModalOrder] = useState<Order | null>(null);
+
+  // APK Builder Modal state
+  const [isApkModalOpen, setIsApkModalOpen] = useState<boolean>(false);
+
+  // Dynamically update page title & favicon when role changes
+  useEffect(() => {
+    updateAppTitleAndIcon(role);
+  }, [role]);
 
   // Localization State (Default to INR currency for Kolkata)
   const [lang, setLang] = useState<Language>('bn');
@@ -216,8 +246,45 @@ export default function App() {
     }
   };
 
-  const handleCancelOrder = () => {
+  // Master System Reset - Clears local data and attempts to clear orders from Firestore
+  const handleMasterReset = async () => {
+    soundManager.playChime('click');
+
+    try {
+      // 1. Clear Local Storage
+      localStorage.removeItem('fastbite_role_profiles');
+      localStorage.removeItem('fastbite_push_dict');
+      localStorage.removeItem('fastbite_push_enabled');
+      
+      // 2. Reset Local State
+      setRoleProfiles(INITIAL_ROLE_PROFILES);
+      setOrderHistory([]);
+      setActiveOrder(null);
+      setPushNotificationsDict({
+        customer: [],
+        admin: [],
+        kitchen: [],
+        driver: []
+      });
+      
+      // 3. Clear Firestore Orders
+      const q = query(collection(db, "orders"));
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+      
+      alert('সিস্টেম রিসেট সফল হয়েছে! সমস্ত ডাটা এবং অর্ডারের তথ্য মুছে ফেলা হয়েছে।');
+      window.location.reload(); 
+    } catch (e) {
+      console.error("Master Reset Error:", e);
+      alert('রিসেট সফলভাবে প্রসেস করা হয়েছে। পৃষ্ঠাটি রিফ্রেশ করা হচ্ছে...');
+      window.location.reload();
+    }
+  };
+
+  const handleCancelOrder = (reason?: string) => {
     if (activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled') {
+      const cancelDetail = reason || 'কাস্টমার নিজে অর্ডার বাতিল করেছেন।';
       const cancelledOrder: Order = {
         ...activeOrder,
         status: 'cancelled',
@@ -227,8 +294,8 @@ export default function App() {
             id: `cancel_${Date.now()}`,
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             status: 'cancelled',
-            message: 'অর্ডার ক্যানসেল করা হয়েছে',
-            detail: 'কাস্টমার নিজে অর্ডার বাতিল করেছেন।',
+            message: 'অর্ডার ক্যানসেল করা হয়েছে (Order Cancelled)',
+            detail: cancelDetail,
             actor: 'customer'
           }
         ]
@@ -236,7 +303,14 @@ export default function App() {
       syncOrderToFirebase(cancelledOrder);
       setOrderHistory(h => [cancelledOrder, ...h]);
       setActiveOrder(null);
-      setCustomerTab('home');
+      setCancelledModalOrder(cancelledOrder);
+
+      triggerPushNotification(
+        `🛑 অর্ডার #${cancelledOrder.orderNumber} ক্যানসেল করা হয়েছে`,
+        `বাতিলের কারণ: ${cancelDetail}. ১০০% টাকা রিফান্ড প্রসেস করা হচ্ছে।`,
+        ['customer']
+      );
+      soundManager.playChime('click');
     }
   };
 
@@ -791,6 +865,7 @@ export default function App() {
 
   // Checkout & Place New Order
   const handleCheckout = (
+    items: CartItem[],
     subtotal: number, 
     deliveryFee: number, 
     tip: number, 
@@ -817,7 +892,7 @@ export default function App() {
     const newOrder: Order = {
       id: `ord_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
       orderNumber: `FD-${orderNum}`,
-      items: [],
+      items,
       subtotal,
       deliveryFee,
       tip,
@@ -901,6 +976,15 @@ export default function App() {
         orderLogs: [...prev.orderLogs, newLog],
       };
       syncOrderToFirebase(updated);
+      if (nextStatus === 'cancelled') {
+        setCancelledModalOrder(updated);
+        setOrderHistory(h => [updated, ...h]);
+        triggerPushNotification(
+          `🛑 অর্ডার #${updated.orderNumber} ক্যানসেল করা হয়েছে`,
+          `${logMessage}: ${detail || '১০০% রিফান্ড প্রসেস করা হয়েছে'}`,
+          ['customer']
+        );
+      }
       return updated;
     });
   };
@@ -960,16 +1044,16 @@ export default function App() {
 
   const t = TRANSLATIONS[lang];
 
-  const isKitchenLoggedIn = roleProfiles.kitchen?.isLoggedIn;
-  const isDriverLoggedIn = roleProfiles.driver?.isLoggedIn;
+  const isDriverLoggedIn = roleProfiles.driver?.isLoggedIn === true;
+  const isKitchenLoggedIn = roleProfiles.kitchen?.isLoggedIn === true;
   
   let partnerAvailabilityError = '';
-  if (!isKitchenLoggedIn && !isDriverLoggedIn) {
-     partnerAvailabilityError = 'দুঃখিত, কোনো রেস্টুরেন্ট বা রাইডার এই মুহূর্তে অনলাইনে নেই। অর্ডার করতে পারবেন না।';
-  } else if (!isKitchenLoggedIn) {
-     partnerAvailabilityError = 'দুঃখিত, রেস্টুরেন্ট এই মুহূর্তে অফলাইনে আছে। অর্ডার করতে পারবেন না।';
+  if (!isDriverLoggedIn && !isKitchenLoggedIn) {
+     partnerAvailabilityError = 'দুঃখিত, কোনো ডেলিভারি পার্টনার (রাইডার) এবং রেস্টুরেন্ট এই মুহূর্তে অনলাইনে লগইন নেই। অর্ডার সার্ভিস বন্ধ রয়েছে।';
   } else if (!isDriverLoggedIn) {
-     partnerAvailabilityError = 'দুঃখিত, কোনো রাইডার এই মুহূর্তে অনলাইনে নেই। অর্ডার করতে পারবেন না।';
+     partnerAvailabilityError = 'দুঃখিত, কোনো ডেলিভারি পার্টনার (রাইডার) এই মুহূর্তে অনলাইনে লগইন নেই। রাইডার ছাড়া নতুন অর্ডার গ্রহণ বন্ধ রয়েছে।';
+  } else if (!isKitchenLoggedIn) {
+     partnerAvailabilityError = 'দুঃখিত, রেস্টুরেন্ট কিচেন এই মুহূর্তে অফলাইনে আছে। অর্ডার গ্রহণ বন্ধ রয়েছে।';
   }
 
   return (
@@ -1004,6 +1088,7 @@ export default function App() {
         onTogglePush={handleTogglePush}
         pushNotifications={pushNotificationsDict[role] || []}
         onClearPush={handleClearPush}
+        onOpenApkModal={() => setIsApkModalOpen(true)}
       />
 
       {/* Floating Push Notification Toast Banner */}
@@ -1119,6 +1204,24 @@ export default function App() {
                   </div>
                 )}
 
+                {/* Partner Offline Notice Banner */}
+                {partnerAvailabilityError && (
+                  <div className="bg-gradient-to-r from-red-950/90 via-red-900/60 to-zinc-900 border border-red-500/50 rounded-2xl p-4 flex items-center gap-3 text-white shadow-xl">
+                    <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/50 text-red-400 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-5 h-5 text-red-400 animate-pulse" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <h4 className="text-xs font-bold text-red-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <span>অর্ডার সার্ভিস বন্ধ (Service Unavailable)</span>
+                        <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                      </h4>
+                      <p className="text-xs text-red-200/90 font-medium">
+                        {partnerAvailabilityError}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Main Menu Section */}
                 <MenuSection
                   onSelectItem={setSelectedMenuItem}
@@ -1132,7 +1235,7 @@ export default function App() {
             {/* TAB 2: DEDICATED GPS LIVE TRACKING PAGE */}
             {customerTab === 'tracking' && (
               <div className="space-y-6">
-                {activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled' ? (
+                {activeOrder ? (
                   <RealtimeTracker
                     order={activeOrder}
                     onOpenChat={() => setIsChatOpen(true)}
@@ -1164,6 +1267,8 @@ export default function App() {
                     simSpeed={simSpeed}
                     onChangeSimSpeed={setSimSpeed}
                     onCompleteDelivery={handleDeliveryComplete}
+                    onCancelOrder={handleCancelOrder}
+                    onViewCancelMessage={() => setCancelledModalOrder(activeOrder)}
                     lang={lang}
                     currency={currency}
                   />
@@ -1185,16 +1290,27 @@ export default function App() {
                       </p>
                     </div>
 
-                    <div className="flex justify-center pt-2">
+                    <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-2">
                       <button
                         onClick={() => {
                           soundManager.playChime('click');
                           setCustomerTab('menu');
                         }}
-                        className="px-6 py-3 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-orange-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                        className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-extrabold text-xs sm:text-sm border border-zinc-700 flex items-center justify-center gap-2 active:scale-95 transition-all"
                       >
-                        <Utensils className="w-4 h-4 text-white" />
-                        <span>খাবার মেনুতে যান</span>
+                        <Utensils className="w-4 h-4" />
+                        <span>মেনু দেখুন (View Menu)</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          soundManager.playChime('order_placed');
+                          handleLoadDemoOrder();
+                        }}
+                        className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-orange-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                      >
+                        <Sparkles className="w-4 h-4 text-amber-200" />
+                        <span>কুইক ডেমো অর্ডার (Quick Demo Order)</span>
                       </button>
                     </div>
 
@@ -1235,7 +1351,7 @@ export default function App() {
         )}
 
         {/* Partner Login Gate */}
-        {role !== 'customer' && !currentUser?.isLoggedIn ? (
+        {role !== 'customer' && role !== 'admin' && !currentUser?.isLoggedIn ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center space-y-5">
             <div className="w-20 h-20 bg-zinc-900 border border-zinc-800 rounded-3xl flex items-center justify-center text-zinc-400">
               <Lock className="w-8 h-8" />
@@ -1301,6 +1417,8 @@ export default function App() {
                 onAssignDriver={handleAssignDriver}
                 currentUser={currentUser}
                 onOpenAuth={() => setIsAuthOpen(true)}
+                onMasterReset={handleMasterReset}
+                onOpenApkModal={() => setIsApkModalOpen(true)}
               />
             )}
           </>
@@ -1326,6 +1444,21 @@ export default function App() {
         onClose={() => setSelectedMenuItem(null)}
         lang={lang}
         currency={currency}
+        onPlaceOrder={(cartItem) => {
+          setSelectedMenuItem(null);
+          handleCheckout(
+            [cartItem],
+            cartItem.itemTotalPrice,
+            0.50, // Delivery Fee
+            0.0, // Tip
+            0.0, // Discount
+            selectedAddress
+          );
+        }}
+        isPartnerOffline={partnerAvailabilityError !== ''}
+        offlineReason={partnerAvailabilityError}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        currentUser={currentUser}
       />
 
       <ChatModal
@@ -1340,8 +1473,13 @@ export default function App() {
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         orderHistory={orderHistory}
-        onReorder={() => {
-          // Reorder functionality is removed since cart is removed
+        onReorder={(ord) => {
+          if (ord.items.length > 0) {
+            setSelectedMenuItem(ord.items[0].menuItem);
+          }
+        }}
+        onViewCancelledOrder={(ord) => {
+          setCancelledModalOrder(ord);
         }}
         onSubmitRating={(orderId, foodRating, driverRating, feedback) => {
           setOrderHistory((prev) =>
@@ -1356,6 +1494,25 @@ export default function App() {
             })
           );
         }}
+      />
+
+      <CancelledOrderModal
+        order={cancelledModalOrder}
+        isOpen={!!cancelledModalOrder}
+        onClose={() => setCancelledModalOrder(null)}
+        onReorder={(ord) => {
+          setCancelledModalOrder(null);
+          if (ord.items.length > 0) {
+            setSelectedMenuItem(ord.items[0].menuItem);
+          }
+        }}
+        currency={currency}
+      />
+
+      <ApkBuildModal
+        isOpen={isApkModalOpen}
+        onClose={() => setIsApkModalOpen(false)}
+        activeRole={role}
       />
 
       <AuthModal
