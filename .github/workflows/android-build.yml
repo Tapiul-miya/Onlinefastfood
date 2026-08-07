@@ -108,50 +108,40 @@ jobs:
 
           # Generate distinct raster launcher PNG icons with unique geometric inner accents for all flavors
           pip install Pillow
-          cat << 'EOF' > generate_icons.py
+          python3 -c '
 import os
 from PIL import Image, ImageDraw
-
 apps = {
-    'customer': {'color': (249, 115, 22), 'shape': 'circle'},
-    'kitchen': {'color': (225, 29, 72), 'shape': 'triangle'},
-    'rider': {'color': (16, 185, 129), 'shape': 'square'},
-    'admin': {'color': (99, 102, 241), 'shape': 'diamond'}
+    "customer": {"color": (249, 115, 22), "shape": "circle"},
+    "kitchen": {"color": (225, 29, 72), "shape": "triangle"},
+    "rider": {"color": (16, 185, 129), "shape": "square"},
+    "admin": {"color": (99, 102, 241), "shape": "diamond"}
 }
-densities = {
-    'mdpi': 48,
-    'hdpi': 72,
-    'xhdpi': 96,
-    'xxhdpi': 144,
-    'xxxhdpi': 192
-}
+densities = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
 for flavor, info in apps.items():
-    bg_color = info['color']
-    shape = info['shape']
+    bg_color = info["color"]
+    shape = info["shape"]
     for dens, size in densities.items():
-        d = f'android/app/src/{flavor}/res/mipmap-{dens}'
+        d = f"android/app/src/{flavor}/res/mipmap-{dens}"
         os.makedirs(d, exist_ok=True)
-        img = Image.new('RGB', (size, size), color=bg_color)
+        img = Image.new("RGB", (size, size), color=bg_color)
         draw = ImageDraw.Draw(img)
         margin = int(size * 0.12)
         draw.rounded_rectangle([margin, margin, size - margin, size - margin], radius=int(size*0.25), fill=(255, 255, 255))
-        
         inner_margin = int(size * 0.3)
-        if shape == 'circle':
+        if shape == "circle":
             draw.ellipse([inner_margin, inner_margin, size - inner_margin, size - inner_margin], fill=bg_color)
-        elif shape == 'triangle':
+        elif shape == "triangle":
             pts = [(size/2, inner_margin), (inner_margin, size - inner_margin), (size - inner_margin, size - inner_margin)]
             draw.polygon(pts, fill=bg_color)
-        elif shape == 'square':
+        elif shape == "square":
             draw.rectangle([inner_margin, inner_margin, size - inner_margin, size - inner_margin], fill=bg_color)
-        elif shape == 'diamond':
+        elif shape == "diamond":
             pts = [(size/2, inner_margin), (size - inner_margin, size/2), (size/2, size - inner_margin), (inner_margin, size/2)]
             draw.polygon(pts, fill=bg_color)
-
-        img.save(os.path.join(d, 'ic_launcher.png'))
-        img.save(os.path.join(d, 'ic_launcher_round.png'))
-EOF
-          python3 generate_icons.py
+        img.save(os.path.join(d, "ic_launcher.png"))
+        img.save(os.path.join(d, "ic_launcher_round.png"))
+'
 
           GRADLE_FILE="android/app/build.gradle"
           if [ -f "$GRADLE_FILE" ]; then
