@@ -86,49 +86,44 @@ jobs:
           echo '<resources><string name="app_name">FB Rider</string><string name="title_activity_main">FB Rider</string></resources>' > android/app/src/rider/res/values/strings.xml
           echo '<resources><string name="app_name">FB Manager</string><string name="title_activity_main">FB Manager</string></resources>' > android/app/src/admin/res/values/strings.xml
 
-          # Generate distinct launcher PNG icons directly from src/assets/icons/ folder using Sharp
+          # Generate distinct launcher PNG icons using Node.js & Sharp with SVG generation
           npm install sharp
           node -e '
           const fs = require("fs");
           const path = require("path");
           const sharp = require("sharp");
 
-          const flavors = ["customer", "kitchen", "rider", "admin"];
+          const apps = {
+            customer: { color: "#F97316", label: "DEL" },
+            kitchen: { color: "#E11D48", label: "KIT" },
+            rider: { color: "#10B981", label: "RDR" },
+            admin: { color: "#6366F1", label: "MGR" }
+          };
+
           const densities = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
 
           async function generateIcons() {
-            for (const flavor of flavors) {
-              let sourceImage = null;
-              const possibleExtensions = [".jpg", ".png", ".jpeg", ".JPG", ".PNG"];
-              
-              for (const ext of possibleExtensions) {
-                const testPath = `src/assets/icons/${flavor}${ext}`;
-                if (fs.existsSync(testPath)) {
-                  sourceImage = testPath;
-                  break;
-                }
-              }
-
-              if (!sourceImage) {
-                console.error(`Error: Logo image for ${flavor} not found in src/assets/icons/!`);
-                process.exit(1);
-              }
-
-              console.log(`Generating icons for ${flavor} using ${sourceImage}...`);
-
+            for (const [flavor, info] of Object.entries(apps)) {
               for (const [dens, size] of Object.entries(densities)) {
                 const dir = `android/app/src/${flavor}/res/mipmap-${dens}`;
                 fs.mkdirSync(dir, { recursive: true });
 
-                await sharp(sourceImage)
-                  .resize(size, size, { fit: "cover" })
-                  .png()
-                  .toFile(path.join(dir, "ic_launcher.png"));
+                const margin = Math.round(size * 0.08);
+                const r = Math.round(size * 0.22);
+                const fontSize = Math.round(size * 0.28);
 
-                await sharp(sourceImage)
-                  .resize(size, size, { fit: "cover" })
-                  .png()
-                  .toFile(path.join(dir, "ic_launcher_round.png"));
+                const svg = `
+                  <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+                    <rect width="${size}" height="${size}" fill="${info.color}" />
+                    <rect x="${margin}" y="${margin}" width="${size - 2*margin}" height="${size - 2*margin}" rx="${r}" ry="${r}" fill="#FFFFFF" />
+                    <circle cx="${size/2}" cy="${size/2 - size*0.05}" r="${size*0.32}" fill="${info.color}" />
+                    <text x="${size/2}" y="${size/2 + size*0.06}" font-family="Arial, sans-serif" font-weight="bold" font-size="${fontSize}" fill="#FFFFFF" text-anchor="middle">${info.label}</text>
+                  </svg>
+                `;
+
+                const buffer = Buffer.from(svg);
+                await sharp(buffer).png().toFile(path.join(dir, "ic_launcher.png"));
+                await sharp(buffer).png().toFile(path.join(dir, "ic_launcher_round.png"));
               }
             }
           }

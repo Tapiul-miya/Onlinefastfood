@@ -144,7 +144,7 @@ export default function App() {
     detectFlavor();
   }, []);
 
-  const [customerTab, setCustomerTab] = useState<'menu' | 'tracking'>('menu');
+  const [customerTab, setCustomerTab] = useState<'menu' | 'tracking' | 'home'>('menu');
 
   // Active Current User profile based on selected app role
   const currentUser = roleProfiles[role] || INITIAL_ROLE_PROFILES[role];
