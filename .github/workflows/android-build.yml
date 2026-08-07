@@ -44,16 +44,20 @@ jobs:
 
       - name: Add / Sync Capacitor Android
         run: |
+          # Install Capacitor Core, Android, and Splash Screen Plugin
           npm install -D @capacitor/cli
-          npm install @capacitor/core @capacitor/android
+          npm install @capacitor/core @capacitor/android @capacitor/splash-screen
+
           if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
             echo "Initializing Capacitor..."
             npx cap init "FastBite Food Delivery" "com.fastbite.customer.app" --web-dir dist
           fi
+
           npx cap add android || true
           echo "Removing stale assets before sync..."
           rm -rf android/app/src/main/assets/public
-          npx cap copy android
+
+          # Sync Web Assets and Configs to Native Android
           npx cap sync android
 
           MANIFEST_FILE="android/app/src/main/AndroidManifest.xml"
@@ -61,7 +65,7 @@ jobs:
             echo "Injecting Android permissions and Flavor Label into AndroidManifest.xml..."
             sed -i 's/android:label="@string\/app_name"/android:label="${appName}"/g' "$MANIFEST_FILE"
             sed -i 's/android:label="@string\/title_activity_main"/android:label="${appName}"/g' "$MANIFEST_FILE"
-            
+
             for PERM in "INTERNET" "ACCESS_NETWORK_STATE" "ACCESS_FINE_LOCATION" "ACCESS_COARSE_LOCATION" "CALL_PHONE" "CAMERA" "VIBRATE" "POST_NOTIFICATIONS" "READ_EXTERNAL_STORAGE" "READ_MEDIA_IMAGES"; do
               if ! grep -q "android.permission.$PERM" "$MANIFEST_FILE"; then
                 sed -i "/<application/i \    <uses-permission android:name=\"android.permission.$PERM\" \/>" "$MANIFEST_FILE"
@@ -86,7 +90,7 @@ jobs:
           echo '<resources><string name="app_name">FB Rider</string><string name="title_activity_main">FB Rider</string></resources>' > android/app/src/rider/res/values/strings.xml
           echo '<resources><string name="app_name">FB Manager</string><string name="title_activity_main">FB Manager</string></resources>' > android/app/src/admin/res/values/strings.xml
 
-          # Customize native splash screen style and background to match our dark theme (#09090b)
+          # Customize native splash screen style and background to match dark theme (#09090b)
           echo "Customizing Native Android Splash Screen styles and colors..."
           STYLES_FILES=$(find android/ -name "styles.xml" -o -name "themes.xml")
           for SFILE in $STYLES_FILES; do
@@ -102,7 +106,7 @@ jobs:
             sed -i 's/#FFFFFF/#09090b/g' "$CFILE"
           done
 
-          # Generate distinct launcher PNG icons using Node.js & Sharp from our premium SVGs
+          # Generate distinct launcher PNG icons using Node.js & Sharp from SVG
           npm install sharp
           node -e '
           const fs = require("fs");
@@ -150,7 +154,7 @@ jobs:
             if ! grep -q "flavorDimensions" "$GRADLE_FILE"; then
               sed -i '/defaultConfig {/i \    flavorDimensions "default"' "$GRADLE_FILE"
             fi
-            
+
             if ! grep -q "productFlavors" "$GRADLE_FILE"; then
               FLAVORS_BLOCK="    productFlavors {\n        customer {\n            dimension \"default\"\n            applicationId \"com.fastbite.customer.app\"\n            resValue \"string\", \"app_name\", \"FB Delivery\"\n            resValue \"string\", \"title_activity_main\", \"FB Delivery\"\n            manifestPlaceholders = [appName: \"FB Delivery\"]\n        }\n        kitchen {\n            dimension \"default\"\n            applicationId \"com.fastbite.kitchen.kds\"\n            resValue \"string\", \"app_name\", \"FB Kitchen\"\n            resValue \"string\", \"title_activity_main\", \"FB Kitchen\"\n            manifestPlaceholders = [appName: \"FB Kitchen\"]\n        }\n        rider {\n            dimension \"default\"\n            applicationId \"com.fastbite.rider.partner\"\n            resValue \"string\", \"app_name\", \"FB Rider\"\n            resValue \"string\", \"title_activity_main\", \"FB Rider\"\n            manifestPlaceholders = [appName: \"FB Rider\"]\n        }\n        admin {\n            dimension \"default\"\n            applicationId \"com.fastbite.admin.manager\"\n            resValue \"string\", \"app_name\", \"FB Manager\"\n            resValue \"string\", \"title_activity_main\", \"FB Manager\"\n            manifestPlaceholders = [appName: \"FB Manager\"]\n        }\n    }"
               sed -i "/buildTypes {/i $FLAVORS_BLOCK" "$GRADLE_FILE"
@@ -164,7 +168,7 @@ jobs:
             exit 1
           fi
           cd android
-          
+
           if [ ! -f "settings.gradle" ]; then
             echo "settings.gradle is missing. Creating default..."
             printf "include ':app'\nif (file('capacitor-cordova-android-plugins').exists()) {\n    include ':capacitor-cordova-android-plugins'\n    project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')\n}\ndef capacitorSettings = file('capacitor.settings.gradle')\nif (capacitorSettings.exists()) {\n    apply from: capacitorSettings\n}\n" > settings.gradle
@@ -176,29 +180,29 @@ jobs:
               fi
             fi
           fi
-          
+
           if [ ! -f "variables.gradle" ]; then
             echo "variables.gradle is missing. Creating default..."
             printf "ext {\n    minSdkVersion = 22\n    compileSdkVersion = 36\n    targetSdkVersion = 35\n    androidxActivityVersion = '1.8.0'\n    androidxAppCompatVersion = '1.6.1'\n    androidxCoordinatorLayoutVersion = '1.2.0'\n    androidxCoreVersion = '1.12.0'\n    androidxFragmentVersion = '1.6.2'\n    coreSplashScreenVersion = '1.0.1'\n    androidxWebkitVersion = '1.9.0'\n    junitVersion = '4.13.2'\n    androidxJunitVersion = '1.1.5'\n    androidxEspressoCoreVersion = '3.5.1'\n    cordovaAndroidVersion = '10.1.1'\n}\n" > variables.gradle
           fi
-          
+
           echo "Updating compileSdkVersion and compileSdk to 36 in all Gradle configuration files..."
           find . -name "*.gradle" -exec sed -i 's/compileSdkVersion = .*/compileSdkVersion = 36/g' {} +
           find . -name "*.gradle" -exec sed -i 's/compileSdkVersion 35/compileSdkVersion 36/g' {} +
           find . -name "*.gradle" -exec sed -i 's/compileSdk 35/compileSdk 36/g' {} +
           find . -name "*.gradle" -exec sed -i 's/compileSdk = .*/compileSdk = 36/g' {} +
-          
+
           if ! grep -q "resolutionStrategy" build.gradle; then
             echo "Adding Kotlin stdlib resolution strategy to build.gradle..."
             printf "\nallprojects {\n    configurations.all {\n        resolutionStrategy {\n            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'\n            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'\n            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'\n        }\n    }\n}\n" >> build.gradle
           fi
-          
+
           echo "Cleaning corrupted Gradle wrapper..."
           rm -rf gradle/wrapper/gradle-wrapper.jar
-          
+
           echo "Generating Gradle wrapper..."
           gradle wrapper --gradle-version 8.13
-          
+
           chmod +x gradlew
           ./gradlew clean assembleDebug --stacktrace
 
