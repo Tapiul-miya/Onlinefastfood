@@ -106,7 +106,7 @@ jobs:
             echo "$ADAPTIVE_ICON" > android/app/src/$FLAVOR/res/mipmap-anydpi-v26/ic_launcher_round.xml
           done
 
-          # Generate distinct raster launcher PNG icons using Node.js & Sharp
+          # Generate distinct raster launcher PNG icons using Node.js & Sharp with clear labels and symbols
           npm install sharp
           node -e '
           const fs = require("fs");
@@ -114,10 +114,10 @@ jobs:
           const sharp = require("sharp");
 
           const apps = {
-            customer: { color: "#F97316", shape: "circle" },
-            kitchen: { color: "#E11D48", shape: "triangle" },
-            rider: { color: "#10B981", shape: "square" },
-            admin: { color: "#6366F1", shape: "diamond" }
+            customer: { color: "#F97316", label: "DEL", name: "Delivery" },
+            kitchen: { color: "#E11D48", label: "KIT", name: "Kitchen" },
+            rider: { color: "#10B981", label: "RDR", name: "Rider" },
+            admin: { color: "#6366F1", label: "MGR", name: "Manager" }
           };
 
           const densities = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
@@ -128,35 +128,16 @@ jobs:
                 const dir = `android/app/src/${flavor}/res/mipmap-${dens}`;
                 fs.mkdirSync(dir, { recursive: true });
 
-                const margin = Math.round(size * 0.12);
-                const innerMargin = Math.round(size * 0.3);
-                const r = Math.round(size * 0.25);
-
-                let innerSvg = "";
-                if (info.shape === "circle") {
-                  const cx = size / 2, cy = size / 2, radius = (size - 2 * innerMargin) / 2;
-                  innerSvg = `<circle cx="${cx}" cy="${cy}" r="${radius}" fill="${info.color}" />`;
-                } else if (info.shape === "triangle") {
-                  const p1 = `${size/2},${innerMargin}`;
-                  const p2 = `${innerMargin},${size - innerMargin}`;
-                  const p3 = `${size - innerMargin},${size - innerMargin}`;
-                  innerSvg = `<polygon points="${p1} ${p2} ${p3}" fill="${info.color}" />`;
-                } else if (info.shape === "square") {
-                  const w = size - 2 * innerMargin;
-                  innerSvg = `<rect x="${innerMargin}" y="${innerMargin}" width="${w}" height="${w}" fill="${info.color}" />`;
-                } else if (info.shape === "diamond") {
-                  const p1 = `${size/2},${innerMargin}`;
-                  const p2 = `${size - innerMargin},${size/2}`;
-                  const p3 = `${size/2},${size - innerMargin}`;
-                  const p4 = `${innerMargin},${size/2}`;
-                  innerSvg = `<polygon points="${p1} ${p2} ${p3} ${p4}" fill="${info.color}" />`;
-                }
+                const margin = Math.round(size * 0.08);
+                const r = Math.round(size * 0.22);
+                const fontSize = Math.round(size * 0.28);
 
                 const svg = `
                   <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
                     <rect width="${size}" height="${size}" fill="${info.color}" />
                     <rect x="${margin}" y="${margin}" width="${size - 2*margin}" height="${size - 2*margin}" rx="${r}" ry="${r}" fill="#FFFFFF" />
-                    ${innerSvg}
+                    <circle cx="${size/2}" cy="${size/2 - size*0.05}" r="${size*0.32}" fill="${info.color}" />
+                    <text x="${size/2}" y="${size/2 + size*0.06}" font-family="Arial, sans-serif" font-weight="bold" font-size="${fontSize}" fill="#FFFFFF" text-anchor="middle">${info.label}</text>
                   </svg>
                 `;
 
