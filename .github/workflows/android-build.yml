@@ -108,11 +108,7 @@ jobs:
 
           # Generate distinct raster launcher PNG icons with unique geometric inner accents for all flavors
           pip install Pillow
-          python3 -c "
-import os, textwrap
-from PIL import Image, ImageDraw
-
-code = textwrap.dedent('''
+          cat << 'EOF' > generate_icons.py
 import os
 from PIL import Image, ImageDraw
 
@@ -154,9 +150,8 @@ for flavor, info in apps.items():
 
         img.save(os.path.join(d, 'ic_launcher.png'))
         img.save(os.path.join(d, 'ic_launcher_round.png'))
-''')
-exec(code)
-"
+EOF
+          python3 generate_icons.py
 
           GRADLE_FILE="android/app/build.gradle"
           if [ -f "$GRADLE_FILE" ]; then
