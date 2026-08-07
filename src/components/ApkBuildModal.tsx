@@ -181,8 +181,8 @@ jobs:
                     : 'bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60'
                 }`}
               >
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg shrink-0 shadow ${cfg.iconBgClass}`}>
-                  {cfg.iconSymbol}
+                <div className="w-8 h-8 rounded-lg overflow-hidden shrink-0 shadow">
+                  <img src={cfg.iconUrl} alt={cfg.appNameEn} className="w-full h-full object-cover" />
                 </div>
                 <div className="min-w-0">
                   <div className="font-bold text-xs truncate text-white">{cfg.appNameBn}</div>
@@ -200,8 +200,8 @@ jobs:
           <div className="p-4 rounded-xl bg-gradient-to-r from-zinc-950 via-zinc-900 to-zinc-950 border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="relative group">
-                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-xl ring-2 ring-white/10 ${currentConfig.iconBgClass}`}>
-                  {currentConfig.iconSymbol}
+                <div className="w-14 h-14 rounded-2xl overflow-hidden shadow-xl ring-2 ring-white/10 shrink-0">
+                  <img src={currentConfig.iconUrl} alt={currentConfig.appNameEn} className="w-full h-full object-cover" />
                 </div>
                 <span className="absolute -bottom-1 -right-1 px-1.5 py-0.5 bg-black text-[9px] font-mono font-bold text-orange-400 rounded-md border border-orange-500/40 shadow">
                   ICON

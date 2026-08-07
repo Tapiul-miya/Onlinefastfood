@@ -3,6 +3,7 @@ import { ShoppingBag, MapPin, Volume2, VolumeX, Bike, User, Flame, ShieldAlert, 
 import { UserRole, Order, UserProfile } from '../types';
 import { Language, Currency, TRANSLATIONS } from '../utils/i18n';
 import { soundManager } from '../utils/audio';
+import { APP_CONFIGS } from '../utils/apkConfigs';
 
 interface HeaderProps {
   role: UserRole;
@@ -62,8 +63,15 @@ export const Header: React.FC<HeaderProps> = ({
           
           {/* Logo & Brand */}
           <div className="flex items-center gap-2 shrink-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-orange-500/20 ring-2 ring-orange-500/30">
-              <Flame className="w-5 h-5 sm:w-6 sm:h-6 fill-white text-orange-600" />
+            <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-lg shadow-orange-500/20 ring-2 ring-orange-500/30 shrink-0 bg-zinc-800">
+              <img 
+                src={APP_CONFIGS[role]?.iconUrl || APP_CONFIGS.customer.iconUrl} 
+                alt={APP_CONFIGS[role]?.appNameEn || "App Icon"} 
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
@@ -71,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {t.appName}
                 </span>
                 <span className="px-1.5 py-0.5 text-[9px] font-extrabold tracking-wider bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-md uppercase hidden xs:inline-block">
-                  ৩-ইন-১ প্লাটফর্ম
+                  ৪-ইন-১ প্লাটফর্ম
                 </span>
               </div>
               <p className="text-[10px] text-zinc-400 hidden xl:block">{t.appSubtitle}</p>
@@ -253,7 +261,9 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
                   }`}
                 >
-                  <User className="w-4 h-4 text-orange-400" />
+                  <div className="w-5 h-5 rounded-lg overflow-hidden shrink-0 shadow bg-zinc-800">
+                    <img src={APP_CONFIGS.customer.iconUrl} alt="Customer" className="w-full h-full object-cover" />
+                  </div>
                   <div className="text-left leading-tight">
                     <div className="font-bold text-xs sm:text-sm">১. {t.roles.customer}</div>
                     <div className="text-[9px] opacity-80 hidden sm:block">খাবার অর্ডার ও জিপিএস ট্র্যাকিং</div>
@@ -270,7 +280,9 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
                   }`}
                 >
-                  <Bike className="w-4 h-4 text-amber-400" />
+                  <div className="w-5 h-5 rounded-lg overflow-hidden shrink-0 shadow bg-zinc-800">
+                    <img src={APP_CONFIGS.driver.iconUrl} alt="Driver" className="w-full h-full object-cover" />
+                  </div>
                   <div className="text-left leading-tight">
                     <div className="font-bold text-xs sm:text-sm">২. {t.roles.driver}</div>
                     <div className="text-[9px] opacity-80 hidden sm:block">ডেলিভারি ট্রিপ ও রাইডার মোড</div>
@@ -287,7 +299,9 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
                   }`}
                 >
-                  <Utensils className="w-4 h-4 text-rose-400" />
+                  <div className="w-5 h-5 rounded-lg overflow-hidden shrink-0 shadow bg-zinc-800">
+                    <img src={APP_CONFIGS.kitchen.iconUrl} alt="Kitchen" className="w-full h-full object-cover" />
+                  </div>
                   <div className="text-left leading-tight">
                     <div className="font-bold text-xs sm:text-sm">৩. {t.roles.kitchen}</div>
                     <div className="text-[9px] opacity-80 hidden sm:block">রেস্তোরাঁ কিচেন টিকিট স্ক্রিন</div>
@@ -304,7 +318,9 @@ export const Header: React.FC<HeaderProps> = ({
                       : 'bg-zinc-950/80 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800'
                   }`}
                 >
-                  <ShieldAlert className="w-4 h-4 text-purple-400" />
+                  <div className="w-5 h-5 rounded-lg overflow-hidden shrink-0 shadow bg-zinc-800">
+                    <img src={APP_CONFIGS.admin.iconUrl} alt="Admin" className="w-full h-full object-cover" />
+                  </div>
                   <div className="text-left leading-tight">
                     <div className="font-bold text-xs sm:text-sm">৪. {t.roles.admin}</div>
                     <div className="text-[9px] opacity-80 hidden sm:block">মেনু এডিট ও ম্যানেজমেন্ট</div>

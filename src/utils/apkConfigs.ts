@@ -1,4 +1,8 @@
 import { UserRole } from '../types';
+import customerIcon from '../assets/icons/customer.jpg';
+import kitchenIcon from '../assets/icons/kitchen.jpg';
+import riderIcon from '../assets/icons/rider.jpg';
+import adminIcon from '../assets/icons/admin.jpg';
 
 export interface AppConfig {
   role: UserRole;
@@ -13,6 +17,7 @@ export interface AppConfig {
   iconSymbol: string;
   iconBgClass: string;
   iconDataUri: string;
+  iconUrl: string;
   descriptionEn: string;
   descriptionBn: string;
   capacitorConfig: {
@@ -41,8 +46,9 @@ export const APP_CONFIGS: Record<UserRole, AppConfig> = {
     secondaryColor: '#f59e0b',
     gradient: 'from-orange-500 to-amber-500',
     iconSymbol: '🍔',
-    iconBgClass: 'bg-gradient-to-tr from-orange-600 to-amber-500 text-white',
-    iconDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="22" fill="%23f97316"/><text x="50" y="65" font-size="50" text-anchor="middle">🍔</text></svg>',
+    iconBgClass: 'bg-gradient-to-tr from-orange-600 to-amber-500 text-white shadow-lg shadow-orange-500/30',
+    iconDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="28" fill="%23f97316"/><text x="50" y="68" font-size="52" text-anchor="middle">🍔</text></svg>',
+    iconUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="28" fill="%23f97316"/><text x="50" y="68" font-size="52" text-anchor="middle">🍔</text></svg>',
     descriptionEn: 'Customer app for ordering food and live GPS delivery tracking.',
     descriptionBn: 'খাবার অর্ডার দেওয়া এবং রিয়েল-টাইম জিপিএস ট্র্যাকিংয়ের কাস্টমার অ্যাপ।',
     capacitorConfig: {
@@ -64,8 +70,9 @@ export const APP_CONFIGS: Record<UserRole, AppConfig> = {
     secondaryColor: '#f97316',
     gradient: 'from-rose-600 to-orange-600',
     iconSymbol: '🍳',
-    iconBgClass: 'bg-gradient-to-tr from-rose-600 to-orange-500 text-white',
-    iconDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="22" fill="%23e11d48"/><text x="50" y="65" font-size="50" text-anchor="middle">🍳</text></svg>',
+    iconBgClass: 'bg-gradient-to-tr from-rose-600 to-orange-500 text-white shadow-lg shadow-rose-500/30',
+    iconDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="28" fill="%23e11d48"/><text x="50" y="68" font-size="52" text-anchor="middle">🍳</text></svg>',
+    iconUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="28" fill="%23e11d48"/><text x="50" y="68" font-size="52" text-anchor="middle">🍳</text></svg>',
     descriptionEn: 'Restaurant Kitchen Display System for managing food prep tickets.',
     descriptionBn: 'রেস্তোরাঁর কিচেন টিকিট ও অর্ডার প্রিপারেশন ম্যানেজমেন্ট অ্যাপ।',
     capacitorConfig: {
@@ -87,8 +94,9 @@ export const APP_CONFIGS: Record<UserRole, AppConfig> = {
     secondaryColor: '#f59e0b',
     gradient: 'from-emerald-600 to-amber-600',
     iconSymbol: '🛵',
-    iconBgClass: 'bg-gradient-to-tr from-emerald-600 to-amber-500 text-white',
-    iconDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="22" fill="%2310b981"/><text x="50" y="65" font-size="50" text-anchor="middle">🛵</text></svg>',
+    iconBgClass: 'bg-gradient-to-tr from-emerald-600 to-amber-500 text-white shadow-lg shadow-emerald-500/30',
+    iconDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="28" fill="%2310b981"/><text x="50" y="68" font-size="52" text-anchor="middle">🛵</text></svg>',
+    iconUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="28" fill="%2310b981"/><text x="50" y="68" font-size="52" text-anchor="middle">🛵</text></svg>',
     descriptionEn: 'Delivery rider app for receiving order trips and turn-by-turn navigation.',
     descriptionBn: 'রাইডারদের জন্য অর্ডার একসেপ্ট এবং লাইভ রোড নেভিগেশন অ্যাপ।',
     capacitorConfig: {
@@ -110,8 +118,9 @@ export const APP_CONFIGS: Record<UserRole, AppConfig> = {
     secondaryColor: '#a855f7',
     gradient: 'from-indigo-600 to-purple-600',
     iconSymbol: '🛡️',
-    iconBgClass: 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white',
-    iconDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="22" fill="%236366f1"/><text x="50" y="65" font-size="50" text-anchor="middle">🛡️</text></svg>',
+    iconBgClass: 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white shadow-lg shadow-indigo-500/30',
+    iconDataUri: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="28" fill="%236366f1"/><text x="50" y="68" font-size="52" text-anchor="middle">🛡️</text></svg>',
+    iconUrl: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100"><rect width="100" height="100" rx="28" fill="%236366f1"/><text x="50" y="68" font-size="52" text-anchor="middle">🛡️</text></svg>',
     descriptionEn: 'Super Admin app for store oversight, menu edits, and system configuration.',
     descriptionBn: 'সুপার এডমিন ও ম্যানেজারদের জন্য সমস্ত কন্ট্রোল এবং মেনু ম্যানেজমেন্ট অ্যাপ।',
     capacitorConfig: {
@@ -141,6 +150,6 @@ export function updateAppTitleAndIcon(role: UserRole) {
     link.rel = 'shortcut icon';
     document.getElementsByTagName('head')[0].appendChild(link);
   }
-  link.type = 'image/svg+xml';
-  link.href = config.iconDataUri;
+  link.type = config.iconUrl ? 'image/jpeg' : 'image/svg+xml';
+  link.href = config.iconUrl || config.iconDataUri;
 }
