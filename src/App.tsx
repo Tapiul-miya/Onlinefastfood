@@ -5,6 +5,7 @@ import {
   UserRole, ChatMessage, Driver, UserProfile, GeoPoint 
 } from './types';
 import { App as CapApp } from '@capacitor/app';
+import { SplashScreen as CapSplashScreen } from '@capacitor/splash-screen';
 import { 
   MENU_ITEMS, INITIAL_RESTAURANT, INITIAL_CUSTOMER_LOCATION, 
   DEFAULT_DRIVER, INITIAL_DRIVERS_LIST, SAMPLE_ROUTE_COORDINATES, INITIAL_PRESET_LOGS,
@@ -121,6 +122,13 @@ export default function App() {
   const [showSplash, setShowSplash] = useState<boolean>(true);
 
   useEffect(() => {
+    // Hide native Capacitor splash screen as soon as React app loads
+    try {
+      CapSplashScreen.hide();
+    } catch (e) {
+      // Ignore if not running on native android
+    }
+
     const detectFlavor = async () => {
       try {
         const info = await CapApp.getInfo();
