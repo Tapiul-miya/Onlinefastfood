@@ -72,8 +72,12 @@ jobs:
           echo "Capacitor config:"
           cat capacitor.config.ts
 
-          # Create native Android project.
-          npx cap add android
+          # Create native Android project if it does not exist.
+          if [ ! -d "android" ]; then
+            npx cap add android
+          else
+            echo "Android directory already exists, skipping 'npx cap add android'."
+          fi
 
           # Copy React build and synchronize plugins/config.
           rm -rf android/app/src/main/assets/public
