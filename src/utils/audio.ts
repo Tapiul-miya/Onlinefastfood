@@ -85,6 +85,8 @@ class SoundManager {
   private soundEnabled: boolean = true;
   private eventConfigs: SoundConfigMap = { ...DEFAULT_SOUND_CONFIGS };
   private cachedVoices: SpeechSynthesisVoice[] = [];
+  private isAudioUnlocked: boolean = false;
+  private currentAudio: HTMLAudioElement | null = null;
 
   constructor() {
     this.loadConfigs();
@@ -96,14 +98,39 @@ class SoundManager {
     if (typeof window === 'undefined') return;
 
     const unlock = () => {
-      // Resume AudioContext on Android/Mobile user touch
-      if (this.audioCtx && this.audioCtx.state === 'suspended') {
-        this.audioCtx.resume();
-      } else {
-        this.getContext();
+      if (this.isAudioUnlocked) return;
+
+      // 1. Unlock Web Audio Context
+      try {
+        const ctx = this.getContext();
+        if (ctx) {
+          if (ctx.state === 'suspended') {
+            ctx.resume();
+          }
+          // Play silent buffer to force unlock audio on Android
+          const buffer = ctx.createBuffer(1, 1, 22050);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.start(0);
+        }
+      } catch {
+        // Ignore
       }
 
-      // Resume SpeechSynthesis on Android
+      // 2. Unlock HTMLAudioElement media autoplay on Android
+      try {
+        const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+        silentAudio.volume = 0.01;
+        const p = silentAudio.play();
+        if (p !== undefined) {
+          p.catch(() => {});
+        }
+      } catch {
+        // Ignore
+      }
+
+      // 3. Unlock SpeechSynthesis on Android
       if ('speechSynthesis' in window) {
         try {
           window.speechSynthesis.resume();
@@ -113,6 +140,7 @@ class SoundManager {
         }
       }
 
+      this.isAudioUnlocked = true;
       window.removeEventListener('touchstart', unlock);
       window.removeEventListener('click', unlock);
       window.removeEventListener('pointerdown', unlock);
@@ -194,15 +222,13 @@ class SoundManager {
     return this.soundEnabled;
   }
 
-  private currentAudio: HTMLAudioElement | null = null;
-
   public speak(text: string, lang: 'bn' | 'en' = 'bn') {
     if (!this.soundEnabled || typeof window === 'undefined') return;
 
-    // Trigger haptic vibration on Android devices if supported
+    // Trigger haptic vibration on Android devices
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
-        navigator.vibrate([150, 100, 200]);
+        navigator.vibrate([200, 100, 200, 100, 300]);
       } catch {
         // Ignore
       }
@@ -216,84 +242,98 @@ class SoundManager {
         // Ignore
       }
     }
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.resume();
-        window.speechSynthesis.cancel();
-      } catch {
-        // Ignore
-      }
-    }
 
     const targetLang = lang === 'bn' ? 'bn' : 'en';
-    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${targetLang}&q=${encodeURIComponent(text)}`;
 
-    let fallbackTriggered = false;
+    // Try Google Translate GTX endpoint (works best on Android WebView & Mobile browsers)
+    const url1 = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${targetLang}&q=${encodeURIComponent(text)}`;
+    const url2 = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${targetLang}&q=${encodeURIComponent(text)}`;
+
+    let hasPlayed = false;
+
     const fallbackToWebSpeech = () => {
-      if (fallbackTriggered) return;
-      fallbackTriggered = true;
-      if (!('speechSynthesis' in window)) return;
-      try {
-        window.speechSynthesis.resume();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = lang === 'bn' ? 'bn-BD' : 'en-US';
-        utterance.rate = 0.98;
-        utterance.pitch = 1.35;
+      if (hasPlayed) return;
+      hasPlayed = true;
 
-        const voices = this.cachedVoices.length > 0 
-          ? this.cachedVoices 
-          : window.speechSynthesis.getVoices();
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.resume();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.lang = lang === 'bn' ? 'bn-BD' : 'en-US';
+          utterance.rate = 1.0;
+          utterance.pitch = 1.0;
 
-        if (voices.length > 0) {
-          const femaleVoice = voices.find(v => {
-            const name = v.name.toLowerCase();
-            const matchesLang = lang === 'bn' 
-              ? (v.lang.includes('bn') || v.lang.includes('hi') || v.lang.includes('in'))
-              : v.lang.includes('en');
-            
-            return matchesLang && (
-              name.includes('female') || 
-              name.includes('zira') || 
-              name.includes('samantha') || 
-              name.includes('swara') || 
-              name.includes('heera') || 
-              name.includes('kalpana') || 
-              name.includes('victoria') ||
-              name.includes('karen') ||
-              name.includes('natural') ||
-              name.includes('google') ||
-              name.includes('android')
-            );
-          }) || voices.find(v => (lang === 'bn' ? (v.lang.includes('bn') || v.lang.includes('hi')) : v.lang.includes('en')));
+          const voices = this.cachedVoices.length > 0 
+            ? this.cachedVoices 
+            : window.speechSynthesis.getVoices();
 
-          if (femaleVoice) {
-            utterance.voice = femaleVoice;
+          if (voices.length > 0) {
+            const matchedVoice = voices.find(v => {
+              const name = v.name.toLowerCase();
+              const vLang = v.lang.toLowerCase();
+              return lang === 'bn' 
+                ? (vLang.includes('bn') || vLang.includes('bangla') || name.includes('bengali') || name.includes('bangla'))
+                : vLang.includes('en');
+            });
+
+            if (matchedVoice) {
+              utterance.voice = matchedVoice;
+            }
           }
+
+          utterance.onerror = () => {
+            // Final fallback to audible chime if speech synthesis fails on Android
+            this.playToneDirect('chime_fanfare');
+          };
+
+          window.speechSynthesis.speak(utterance);
+          return;
+        } catch {
+          // Fallback error
         }
-        window.speechSynthesis.speak(utterance);
+      }
+
+      // If WebSpeech unavailable or failed
+      this.playToneDirect('chime_fanfare');
+    };
+
+    const tryAudioUrl = (url: string, onFail: () => void) => {
+      try {
+        const audio = new Audio();
+        audio.crossOrigin = "anonymous";
+        this.currentAudio = audio;
+        audio.volume = 1.0;
+
+        audio.onended = () => {
+          hasPlayed = true;
+        };
+
+        audio.onerror = () => {
+          onFail();
+        };
+
+        audio.src = url;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.then(() => {
+            hasPlayed = true;
+          }).catch(() => {
+            onFail();
+          });
+        }
       } catch {
-        // Fallback error
+        onFail();
       }
     };
 
-    try {
-      const audio = new Audio(ttsUrl);
-      this.currentAudio = audio;
-      audio.volume = 1.0;
-
-      audio.onerror = () => {
+    // Attempt 1: Try Google GTX TTS
+    tryAudioUrl(url1, () => {
+      // Attempt 2: Try Google TW-OB TTS
+      tryAudioUrl(url2, () => {
+        // Attempt 3: Native WebSpeech or Chime
         fallbackToWebSpeech();
-      };
-
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          fallbackToWebSpeech();
-        });
-      }
-    } catch {
-      fallbackToWebSpeech();
-    }
+      });
+    });
   }
 
   public playToneDirect(tone: ToneType) {
