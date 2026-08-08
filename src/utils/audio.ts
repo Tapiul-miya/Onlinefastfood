@@ -373,27 +373,35 @@ class SoundManager {
     const config = this.eventConfigs[type] || DEFAULT_SOUND_CONFIGS[type];
     if (!config || config.soundType === 'silent') return;
 
-    // Try playing local WAV file if available
-    try {
-      const localAudio = new Audio(`/audio/${type}.wav`);
-      localAudio.volume = 0.8;
-      localAudio.play().catch(() => {
-        // Fallback to Web Audio Direct Tone if audio element fails
-      });
-    } catch {
-      // Ignore
-    }
-
     if (config.soundType === 'voice_bn') {
-      const msg = config.customVoiceBn || DEFAULT_SOUND_CONFIGS[type].customVoiceBn || '';
-      this.playToneDirect('chime_bell'); // short ping before voice
-      setTimeout(() => this.speak(msg, 'bn'), 300);
+      // Prioritize playing real Bengali Voice WAV/MP3 file
+      const voiceAudio = new Audio(`/audio/${type}.wav`);
+      voiceAudio.volume = 0.95;
+      voiceAudio.play().then(() => {
+        // Voice WAV file played successfully
+      }).catch(() => {
+        // Fallback to SpeechSynthesis TTS if browser policy blocks audio autoplay
+        const msg = config.customVoiceBn || DEFAULT_SOUND_CONFIGS[type].customVoiceBn || '';
+        this.playToneDirect('chime_bell');
+        setTimeout(() => this.speak(msg, 'bn'), 250);
+      });
+      return;
     } else if (config.soundType === 'voice_en') {
       const msg = config.customVoiceEn || DEFAULT_SOUND_CONFIGS[type].customVoiceEn || '';
       this.playToneDirect('chime_bell');
       setTimeout(() => this.speak(msg, 'en'), 300);
-    } else {
-      this.playToneDirect(config.soundType);
+      return;
+    }
+
+    // Try playing tone WAV file or web synth tone
+    try {
+      const toneAudio = new Audio(`/audio/${type}.wav`);
+      toneAudio.volume = 0.8;
+      toneAudio.play().catch(() => {
+        this.playToneDirect(config.soundType as any);
+      });
+    } catch {
+      this.playToneDirect(config.soundType as any);
     }
   }
 }

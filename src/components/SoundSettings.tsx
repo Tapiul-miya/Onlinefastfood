@@ -136,9 +136,30 @@ export const SoundSettings: React.FC = () => {
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 
+  const testPlayVoice = (eventKey: SoundEventKey) => {
+    setCurrentlyTesting(eventKey + '_voice');
+    const currentConfig = configs[eventKey] || DEFAULT_SOUND_CONFIGS[eventKey];
+    const textBn = currentConfig.customVoiceBn || DEFAULT_SOUND_CONFIGS[eventKey].customVoiceBn || '';
+    soundManager.speak(textBn, 'bn');
+    setTimeout(() => setCurrentlyTesting(null), 2500);
+  };
+
+  const testPlayWavFile = (eventKey: SoundEventKey) => {
+    setCurrentlyTesting(eventKey + '_wav');
+    try {
+      const audio = new Audio(`/audio/${eventKey}.wav`);
+      audio.volume = 0.9;
+      audio.play().catch(() => {
+        soundManager.playChime(eventKey);
+      });
+    } catch {
+      soundManager.playChime(eventKey);
+    }
+    setTimeout(() => setCurrentlyTesting(null), 2000);
+  };
+
   const testPlayEvent = (eventKey: SoundEventKey) => {
     setCurrentlyTesting(eventKey);
-    // Directly test with current draft configs in case text was modified
     const currentConfig = configs[eventKey];
     if (currentConfig) {
       if (currentConfig.soundType === 'voice_bn') {
@@ -163,7 +184,7 @@ export const SoundSettings: React.FC = () => {
             শব্দ ও ভয়েস মেসেজ কনফিগারেশন (Sound & Voice Settings)
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            কোন ঘটনায় (অর্ডার প্লেস, কিচেন রেডি, রাইডার অ্যাসাইন ইত্যাদি) কোন টোন বা কাস্টম ভয়েস মেসেজ বাজবে তা পরিবর্তন করে সেভ করুন।
+            অ্যান্ড্রয়েড রেসপন্স ফাইল (<code className="bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded font-mono text-[11px]">res/raw/*.wav</code>) সহ টেস্ট করতে নিচের বোতামগুলি ব্যবহার করুন।
           </p>
         </div>
 
@@ -218,25 +239,53 @@ export const SoundSettings: React.FC = () => {
                   <p className="text-[11px] text-zinc-400">{info.descBn}</p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  {/* Test Play Button */}
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {/* Test Voice TTS Button */}
                   <button
-                    onClick={() => testPlayEvent(key)}
-                    className={`px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all border shadow-sm cursor-pointer ${
-                      isTesting 
-                        ? 'bg-orange-500 text-white border-orange-400 scale-105' 
-                        : 'bg-zinc-800 hover:bg-orange-600/30 hover:text-orange-300 text-zinc-200 border-zinc-700'
+                    onClick={() => testPlayVoice(key)}
+                    title="বাংলা ভয়েস মেসেজ টেস্ট করুন (Speech TTS)"
+                    className={`px-2.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition-all border cursor-pointer ${
+                      currentlyTesting === key + '_voice'
+                        ? 'bg-amber-500 text-black border-amber-400 scale-105'
+                        : 'bg-zinc-900 hover:bg-amber-500/20 hover:text-amber-300 text-zinc-300 border-zinc-700'
                     }`}
                   >
-                    <Play className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
-                    <span>{isTesting ? 'বাজছে...' : 'টেস্ট করুন'}</span>
+                    <MessageSquare className="w-3 h-3 text-amber-400" />
+                    <span>ভয়েস টেস্ট</span>
+                  </button>
+
+                  {/* Test WAV File Button */}
+                  <button
+                    onClick={() => testPlayWavFile(key)}
+                    title="Android RAW / WAV অডিও ফাইল সাউন্ড টেস্ট করুন"
+                    className={`px-2.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition-all border cursor-pointer ${
+                      currentlyTesting === key + '_wav'
+                        ? 'bg-purple-500 text-white border-purple-400 scale-105'
+                        : 'bg-zinc-900 hover:bg-purple-500/20 hover:text-purple-300 text-zinc-300 border-zinc-700'
+                    }`}
+                  >
+                    <Music className="w-3 h-3 text-purple-400" />
+                    <span>WAV ফাইল টেস্ট</span>
+                  </button>
+
+                  {/* Main Selected Sound Test Button */}
+                  <button
+                    onClick={() => testPlayEvent(key)}
+                    className={`px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all border shadow-sm cursor-pointer ${
+                      currentlyTesting === key 
+                        ? 'bg-orange-500 text-white border-orange-400 scale-105' 
+                        : 'bg-orange-600/20 hover:bg-orange-600/40 text-orange-300 border-orange-500/30'
+                    }`}
+                  >
+                    <Play className={`w-3.5 h-3.5 ${currentlyTesting === key ? 'animate-spin' : ''}`} />
+                    <span>{currentlyTesting === key ? 'বাজছে...' : 'প্লে টেস্ট'}</span>
                   </button>
 
                   {/* Sound Type Selector Dropdown */}
                   <select
                     value={currentConfig.soundType}
                     onChange={(e) => handleTypeChange(key, e.target.value as ToneType)}
-                    className="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-xs font-bold text-orange-300 focus:outline-none focus:border-orange-500 max-w-[210px] sm:max-w-xs cursor-pointer"
+                    className="bg-zinc-900 border border-zinc-700 rounded-xl px-2.5 py-1.5 text-xs font-bold text-orange-300 focus:outline-none focus:border-orange-500 max-w-[180px] sm:max-w-xs cursor-pointer"
                   >
                     {TONE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value} className="bg-zinc-900 text-white">
@@ -284,24 +333,19 @@ export const SoundSettings: React.FC = () => {
         })}
       </div>
 
-      {/* Bottom Sticky Save Button Bar */}
+      {/* Bottom Footer Status Bar */}
       <div className="pt-4 border-t border-zinc-800 flex items-center justify-between gap-4">
         <p className="text-xs text-zinc-400 font-medium">
           {hasUnsavedChanges ? (
             <span className="text-amber-400 font-bold flex items-center gap-1 animate-pulse">
-              ⚠️ আপনার কিছু পরিবর্তন এখনও সেভ করা হয়নি।
+              ⚠️ আপনার কিছু পরিবর্তন এখনও সেভ করা হয়নি। ওপরের 'সেটিং সেভ করুন' বোতামে চাপুন।
             </span>
           ) : (
-            <span>সমস্ত সাউন্ড সেটিংস সেভ করা রয়েছে।</span>
+            <span className="text-emerald-400 font-medium flex items-center gap-1">
+              ✓ সমস্ত সাউন্ড ও ভয়েস সেটিংস সেভ করা রয়েছে।
+            </span>
           )}
         </p>
-        <button
-          onClick={handleSaveSettings}
-          className="px-6 py-3 rounded-2xl font-extrabold text-sm bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-950/50 border border-emerald-400/40 flex items-center gap-2 cursor-pointer active:scale-95 transition-all shrink-0"
-        >
-          <Save className="w-4 h-4" />
-          <span>সেটিং সেভ করুন (Save Settings)</span>
-        </button>
       </div>
     </div>
   );
