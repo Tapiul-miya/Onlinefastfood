@@ -131,6 +131,17 @@ export default function App() {
       // Ignore if not running on native android
     }
 
+    const requestPermissionsOnLaunch = async () => {
+      try {
+        if ('Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission();
+        }
+      } catch (e) {
+        console.log('Permission request error:', e);
+      }
+    };
+    requestPermissionsOnLaunch();
+
     const detectFlavor = async () => {
       try {
         const info = await CapApp.getInfo();
