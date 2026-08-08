@@ -98,8 +98,6 @@ class SoundManager {
     if (typeof window === 'undefined') return;
 
     const unlock = () => {
-      if (this.isAudioUnlocked) return;
-
       // 1. Unlock Web Audio Context
       try {
         const ctx = this.getContext();
@@ -141,14 +139,16 @@ class SoundManager {
       }
 
       this.isAudioUnlocked = true;
-      window.removeEventListener('touchstart', unlock);
-      window.removeEventListener('click', unlock);
-      window.removeEventListener('pointerdown', unlock);
     };
 
-    window.addEventListener('touchstart', unlock, { passive: true, once: true });
-    window.addEventListener('click', unlock, { passive: true, once: true });
-    window.addEventListener('pointerdown', unlock, { passive: true, once: true });
+    window.addEventListener('touchstart', unlock, { passive: true });
+    window.addEventListener('click', unlock, { passive: true });
+    window.addEventListener('pointerdown', unlock, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        unlock();
+      }
+    });
   }
 
   private initVoices() {
@@ -225,7 +225,15 @@ class SoundManager {
   public speak(text: string, lang: 'bn' | 'en' = 'bn') {
     if (!this.soundEnabled || typeof window === 'undefined') return;
 
-    // Trigger haptic vibration on Android devices
+    // Ensure AudioContext & SpeechSynthesis are unlocked & active on Android
+    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+      try { this.audioCtx.resume(); } catch {}
+    }
+    if ('speechSynthesis' in window) {
+      try { window.speechSynthesis.resume(); } catch {}
+    }
+
+    // Trigger haptic vibration pattern on Android devices
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       try {
         navigator.vibrate([200, 100, 200, 100, 300]);
@@ -244,94 +252,117 @@ class SoundManager {
     }
 
     const targetLang = lang === 'bn' ? 'bn' : 'en';
+    const voiceName = targetLang === 'bn' ? 'Bangla' : 'Brian';
 
-    // Try Google Translate GTX endpoint (works best on Android WebView & Mobile browsers)
-    const url1 = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${targetLang}&q=${encodeURIComponent(text)}`;
-    const url2 = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${targetLang}&q=${encodeURIComponent(text)}`;
+    // StreamElements TTS has full CORS support (*), ideal for Android WebView & APKs
+    const streamElementsUrl = `https://api.streamelements.com/kappa/v2/speech?voice=${voiceName}&text=${encodeURIComponent(text)}`;
+    const googleGtxUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&tl=${targetLang}&q=${encodeURIComponent(text)}`;
+    const googleTwUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${targetLang}&q=${encodeURIComponent(text)}`;
 
-    let hasPlayed = false;
+    let speechHandled = false;
 
-    const fallbackToWebSpeech = () => {
-      if (hasPlayed) return;
-      hasPlayed = true;
-
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        try {
-          window.speechSynthesis.resume();
-          const utterance = new SpeechSynthesisUtterance(text);
-          utterance.lang = lang === 'bn' ? 'bn-BD' : 'en-US';
-          utterance.rate = 1.0;
-          utterance.pitch = 1.0;
-
-          const voices = this.cachedVoices.length > 0 
-            ? this.cachedVoices 
-            : window.speechSynthesis.getVoices();
-
-          if (voices.length > 0) {
-            const matchedVoice = voices.find(v => {
-              const name = v.name.toLowerCase();
-              const vLang = v.lang.toLowerCase();
-              return lang === 'bn' 
-                ? (vLang.includes('bn') || vLang.includes('bangla') || name.includes('bengali') || name.includes('bangla'))
-                : vLang.includes('en');
-            });
-
-            if (matchedVoice) {
-              utterance.voice = matchedVoice;
-            }
-          }
-
-          utterance.onerror = () => {
-            // Final fallback to audible chime if speech synthesis fails on Android
-            this.playToneDirect('chime_fanfare');
-          };
-
-          window.speechSynthesis.speak(utterance);
-          return;
-        } catch {
-          // Fallback error
-        }
-      }
-
-      // If WebSpeech unavailable or failed
-      this.playToneDirect('chime_fanfare');
-    };
-
-    const tryAudioUrl = (url: string, onFail: () => void) => {
+    const playAudioUrl = (url: string, onSuccess: () => void, onError: () => void) => {
       try {
         const audio = new Audio();
         audio.crossOrigin = "anonymous";
         this.currentAudio = audio;
         audio.volume = 1.0;
 
-        audio.onended = () => {
-          hasPlayed = true;
+        audio.onplay = () => {
+          speechHandled = true;
+          onSuccess();
         };
 
         audio.onerror = () => {
-          onFail();
+          onError();
         };
 
         audio.src = url;
         const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise.then(() => {
-            hasPlayed = true;
+            speechHandled = true;
+            onSuccess();
           }).catch(() => {
-            onFail();
+            onError();
           });
         }
+      } catch {
+        onError();
+      }
+    };
+
+    const tryAndroidWebSpeech = (onFail: () => void) => {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+        onFail();
+        return;
+      }
+
+      try {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = targetLang === 'bn' ? 'bn-BD' : 'en-US';
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        let started = false;
+
+        utterance.onstart = () => {
+          started = true;
+          speechHandled = true;
+        };
+
+        utterance.onerror = () => {
+          if (!started) onFail();
+        };
+
+        const voices = this.cachedVoices.length > 0 
+          ? this.cachedVoices 
+          : window.speechSynthesis.getVoices();
+
+        if (voices.length > 0) {
+          const matchedVoice = voices.find(v => {
+            const name = v.name.toLowerCase();
+            const vLang = v.lang.toLowerCase();
+            return targetLang === 'bn' 
+              ? (vLang.includes('bn') || vLang.includes('bangla') || name.includes('bengali') || name.includes('bangla') || vLang.includes('hi'))
+              : vLang.includes('en');
+          });
+
+          if (matchedVoice) {
+            utterance.voice = matchedVoice;
+          }
+        }
+
+        window.speechSynthesis.speak(utterance);
+
+        // Timeout check: if WebSpeech didn't start within 500ms on Android, fall through
+        setTimeout(() => {
+          if (!started && !speechHandled) {
+            onFail();
+          }
+        }, 500);
       } catch {
         onFail();
       }
     };
 
-    // Attempt 1: Try Google GTX TTS
-    tryAudioUrl(url1, () => {
-      // Attempt 2: Try Google TW-OB TTS
-      tryAudioUrl(url2, () => {
-        // Attempt 3: Native WebSpeech or Chime
-        fallbackToWebSpeech();
+    // PIPELINE FOR ANDROID VOICE PLAYBACK:
+    // 1st: StreamElements API (CORS-enabled MP3 stream)
+    playAudioUrl(streamElementsUrl, () => {}, () => {
+      // 2nd: Android Native WebSpeech Engine (Google Speech Services)
+      tryAndroidWebSpeech(() => {
+        // 3rd: Google GTX TTS URL
+        playAudioUrl(googleGtxUrl, () => {}, () => {
+          // 4th: Google TW-OB TTS URL
+          playAudioUrl(googleTwUrl, () => {}, () => {
+            // 5th: Audible Fanfare Chime Fallback so Android users never miss order alerts
+            this.playToneDirect('chime_fanfare');
+          });
+        });
       });
     });
   }
