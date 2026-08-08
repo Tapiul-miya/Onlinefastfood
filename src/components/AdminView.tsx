@@ -7,6 +7,7 @@ import {
 import { MenuItem, Order, Driver, OrderStatus, FoodCategory, UserProfile } from '../types';
 import { Language, Currency, formatPrice, TRANSLATIONS } from '../utils/i18n';
 import { soundManager } from '../utils/audio';
+import { SoundSettings } from './SoundSettings';
 
 interface AdminViewProps {
   lang: Language;
@@ -488,93 +489,74 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
       {/* Tab 4: System & Region Settings */}
       {activeTab === 'settings' && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 text-white space-y-6 max-w-2xl">
-          <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
-            <Globe className="w-5 h-5 text-orange-400" />
-            Regional & Currency Configuration
-          </h2>
+        <div className="space-y-6 max-w-4xl">
+          <SoundSettings />
 
-          <div className="space-y-4 text-xs">
-            <div className="space-y-1.5">
-              <label className="text-zinc-400 font-bold block">App Language (ভাষা):</label>
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                <button
-                  onClick={() => onSelectLang('bn')}
-                  className={`p-3 rounded-xl font-bold border transition-all text-center ${
-                    lang === 'bn'
-                      ? 'bg-orange-600 text-white border-orange-500'
-                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
-                  }`}
-                >
-                  🇧🇩 🇮🇳 বাংলা (Bengali)
-                </button>
-                <button
-                  onClick={() => onSelectLang('en')}
-                  className={`p-3 rounded-xl font-bold border transition-all text-center ${
-                    lang === 'en'
-                      ? 'bg-orange-600 text-white border-orange-500'
-                      : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
-                  }`}
-                >
-                  🌐 English
-                </button>
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 sm:p-6 text-white space-y-6">
+            <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
+              <Globe className="w-5 h-5 text-orange-400" />
+              Regional & Currency Configuration
+            </h2>
+
+            <div className="space-y-4 text-xs">
+              <div className="space-y-1.5">
+                <label className="text-zinc-400 font-bold block">App Language (ভাষা):</label>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <button
+                    onClick={() => onSelectLang('bn')}
+                    className={`p-3 rounded-xl font-bold border transition-all text-center ${
+                      lang === 'bn'
+                        ? 'bg-orange-600 text-white border-orange-500'
+                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
+                    }`}
+                  >
+                    🇧🇩 🇮🇳 বাংলা (Bengali)
+                  </button>
+                  <button
+                    onClick={() => onSelectLang('en')}
+                    className={`p-3 rounded-xl font-bold border transition-all text-center ${
+                      lang === 'en'
+                        ? 'bg-orange-600 text-white border-orange-500'
+                        : 'bg-zinc-950 text-zinc-400 border-zinc-800 hover:text-white'
+                    }`}
+                  >
+                    🌐 English
+                  </button>
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <label className="text-zinc-400 font-bold block">Default Currency (মুদ্রা):</label>
-              <div className="grid grid-cols-1 gap-2 sm:gap-3">
-                <button
-                  onClick={() => onSelectCurrency('INR')}
-                  className="p-3 rounded-xl font-bold border transition-all text-center bg-amber-600 text-white border-amber-500"
-                >
-                  ₹ Indian Rupee (INR)
-                </button>
+              <div className="space-y-1.5">
+                <label className="text-zinc-400 font-bold block">Default Currency (মুদ্রা):</label>
+                <div className="grid grid-cols-1 gap-2 sm:gap-3">
+                  <button
+                    onClick={() => onSelectCurrency('INR')}
+                    className="p-3 rounded-xl font-bold border transition-all text-center bg-amber-600 text-white border-amber-500"
+                  >
+                    ₹ Indian Rupee (INR)
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* Multi-App APK Build Section */}
-            {onOpenApkModal && (
-              <div className="pt-6 border-t border-zinc-800 space-y-3">
-                <h3 className="text-orange-400 font-bold flex items-center gap-2 text-sm">
-                  <Smartphone className="w-4 h-4 text-orange-400" />
-                  Android APK Multi-App Build Generator
+              {/* Danger Zone / Master Reset */}
+              <div className="pt-6 border-t border-zinc-800">
+                <h3 className="text-red-400 font-bold flex items-center gap-2 mb-3">
+                  <ShieldAlert className="w-4 h-4" />
+                  Advanced Settings (Danger Zone)
                 </h3>
-                <p className="text-zinc-400 text-xs leading-relaxed">
-                  কাস্টমার, কিচেন কেডিএস, রাইডার পার্টনার এবং এডমিন - ৪টি আলাদা নাম, প্যাকেজ আইডি ও আলাদা আইকন সহ স্বতন্ত্র APK প্রস্তুত করুন।
+                <p className="text-zinc-400 mb-4 leading-relaxed">
+                  If you are experiencing state issues or want to wipe all local data and Firestore orders, use the master reset button below.
                 </p>
                 <button
                   onClick={() => {
                     soundManager.playChime('click');
-                    onOpenApkModal();
+                    setIsResetWarningModalOpen(true);
                   }}
-                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500 hover:from-orange-600 hover:to-emerald-600 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 active:scale-95 transition-all"
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-400 hover:text-white font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-lg shadow-red-950/30"
                 >
-                  <Smartphone className="w-4 h-4" />
-                  <span>📱 4-in-1 APK Build Config & Capacitor Exporter Open</span>
+                  <RefreshCw className="w-4 h-4 text-red-400" />
+                  <span>Master System Reset (Clear All Data)</span>
                 </button>
               </div>
-            )}
-
-            {/* Danger Zone / Master Reset */}
-            <div className="pt-6 border-t border-zinc-800">
-              <h3 className="text-red-400 font-bold flex items-center gap-2 mb-3">
-                <ShieldAlert className="w-4 h-4" />
-                Advanced Settings (Danger Zone)
-              </h3>
-              <p className="text-zinc-400 mb-4 leading-relaxed">
-                If you are experiencing state issues or want to wipe all local data and Firestore orders, use the master reset button below.
-              </p>
-              <button
-                onClick={() => {
-                  soundManager.playChime('click');
-                  setIsResetWarningModalOpen(true);
-                }}
-                className="w-full sm:w-auto px-6 py-3 rounded-xl bg-red-600/20 hover:bg-red-600 border border-red-500/40 text-red-400 hover:text-white font-bold transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 shadow-lg shadow-red-950/30"
-              >
-                <RefreshCw className="w-4 h-4 text-red-400" />
-                <span>Master System Reset (Clear All Data)</span>
-              </button>
             </div>
           </div>
         </div>

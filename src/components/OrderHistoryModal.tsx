@@ -11,6 +11,8 @@ interface OrderHistoryModalProps {
   onReorder: (order: Order) => void;
   onSubmitRating: (orderId: string, foodRating: number, driverRating: number, feedback: string) => void;
   onViewCancelledOrder?: (order: Order) => void;
+  onClearHistory?: () => void;
+  onTrackOrder?: (order: Order) => void;
 }
 
 export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
@@ -20,6 +22,8 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
   onReorder,
   onSubmitRating,
   onViewCancelledOrder,
+  onClearHistory,
+  onTrackOrder,
 }) => {
   if (!isOpen) return null;
 
@@ -28,6 +32,7 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
   const [driverRating, setDriverRating] = useState<number>(5);
   const [feedback, setFeedback] = useState<string>('');
   const [submittedMessage, setSubmittedMessage] = useState<string>('');
+  const [isConfirmingClear, setIsConfirmingClear] = useState<boolean>(false);
 
   const handleOpenRating = (orderId: string) => {
     soundManager.playChime('click');
@@ -68,13 +73,56 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
             </div>
           </div>
 
-          <button
-            id="btn-close-history"
-            onClick={onClose}
-            className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {orderHistory.length > 0 && onClearHistory && (
+              <div className="flex items-center">
+                {isConfirmingClear ? (
+                  <div className="flex items-center gap-1 bg-red-950/90 border border-red-500/40 p-1 rounded-xl shadow-inner animate-fade-in">
+                    <button
+                      id="btn-confirm-clear-history"
+                      onClick={() => {
+                        soundManager.playChime('click');
+                        onClearHistory();
+                        setIsConfirmingClear(false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-extrabold text-[10px] sm:text-xs transition-all active:scale-95 cursor-pointer shadow-sm"
+                    >
+                      নিশ্চিত করুন (Confirm)
+                    </button>
+                    <button
+                      id="btn-cancel-clear-history"
+                      onClick={() => {
+                        soundManager.playChime('click');
+                        setIsConfirmingClear(false);
+                      }}
+                      className="px-2 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-bold text-[10px] sm:text-xs transition-all active:scale-95 cursor-pointer"
+                    >
+                      বাতিল (Cancel)
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    id="btn-trigger-clear-history"
+                    onClick={() => {
+                      soundManager.playChime('click');
+                      setIsConfirmingClear(true);
+                    }}
+                    className="px-2.5 py-1.5 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-500/30 text-red-400 font-bold text-[10px] sm:text-xs flex items-center gap-1 transition-all active:scale-95 cursor-pointer shadow-md"
+                  >
+                    🗑️ হিস্ট্রি মুছুন
+                  </button>
+                )}
+              </div>
+            )}
+
+            <button
+              id="btn-close-history"
+              onClick={onClose}
+              className="p-2 rounded-xl text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
@@ -110,9 +158,15 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
                       <AlertTriangle className="w-3 h-3 text-red-400" />
                       বাতিল (Cancelled)
                     </span>
+                  ) : histOrder.status === 'delivered' ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                      <Check className="w-3 h-3 text-emerald-400" />
+                      ডেলিভারি সম্পন্ন (Delivered)
+                    </span>
                   ) : (
-                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      Delivered
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center gap-1 animate-pulse">
+                      <Clock className="w-3 h-3 text-amber-400 animate-spin" style={{ animationDuration: '3s' }} />
+                      চলমান (Pending)
                     </span>
                   )}
                 </div>
@@ -211,6 +265,23 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
                         Submit Review
                       </button>
                     </div>
+                  </div>
+                ) : histOrder.status !== 'delivered' && histOrder.status !== 'cancelled' ? (
+                  <div className="bg-orange-950/30 border border-orange-500/20 p-2.5 rounded-xl text-xs flex items-center justify-between text-orange-300 w-full gap-2">
+                    <span className="text-[11px] font-medium">💬 অর্ডারটি বর্তমানে চলমান আছে। ডেলিভারি ট্র্যাক করুন।</span>
+                    <button
+                      onClick={() => {
+                        soundManager.playChime('click');
+                        if (onTrackOrder) {
+                          onTrackOrder(histOrder);
+                        } else {
+                          onClose();
+                        }
+                      }}
+                      className="px-2.5 py-1.5 bg-orange-600 hover:bg-orange-500 text-white font-bold text-[11px] rounded-lg transition-all shrink-0 active:scale-95 cursor-pointer"
+                    >
+                      ট্র্যাক করুন
+                    </button>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between pt-1">

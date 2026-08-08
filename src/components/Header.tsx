@@ -341,23 +341,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 </button>
 
-                {/* 5. APK Builder Button */}
-                {onOpenApkModal && (
-                  <button
-                    id="btn-open-apk-builder"
-                    onClick={() => { soundManager.playChime('click'); onOpenApkModal(); }}
-                    className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl transition-all bg-gradient-to-r from-orange-500 via-amber-500 to-emerald-500 hover:from-orange-600 hover:to-emerald-600 text-white font-bold shadow-lg shadow-orange-500/20 border border-amber-400/30 shrink-0"
-                    title="৪টি আলাদা অ্যাপের APK বিল্ড ও কনফিগারেশন ডাউনলোড করুন"
-                  >
-                    <Smartphone className="w-4 h-4 text-white animate-pulse" />
-                    <div className="text-left leading-tight">
-                      <div className="font-extrabold text-xs sm:text-sm flex items-center gap-1">
-                        📱 APK বিল্ড
-                      </div>
-                      <div className="text-[9px] text-amber-100 hidden sm:block font-normal">আলাদা নাম ও আইকন</div>
-                    </div>
-                  </button>
-                )}
+
 
               </div>
             </div>

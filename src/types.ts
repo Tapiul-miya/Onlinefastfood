@@ -118,6 +118,7 @@ export interface Order {
   orderLogs: OrderLog[];
   driverDistanceKm: number;
   driverSpeedKmh: number;
+  chatMessages?: ChatMessage[];
   ratingSubmitted?: {
     foodRating: number;
     driverRating: number;

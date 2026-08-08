@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, AlertTriangle, ShieldCheck, RefreshCw, Clock, Tag, FileText, ArrowRight, CornerDownRight } from 'lucide-react';
+import { X, AlertTriangle, ShieldCheck, RefreshCw, Clock, Tag, FileText, ArrowRight, CornerDownRight, CheckCircle } from 'lucide-react';
 import { Order } from '../types';
 import { Language, Currency, formatPrice } from '../utils/i18n';
 import { soundManager } from '../utils/audio';
@@ -9,6 +9,7 @@ interface CancelledOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onReorder?: (order: Order) => void;
+  onOk?: () => void;
   lang?: Language;
   currency?: Currency;
 }
@@ -18,6 +19,7 @@ export const CancelledOrderModal: React.FC<CancelledOrderModalProps> = ({
   isOpen,
   onClose,
   onReorder,
+  onOk,
   currency = 'INR' as Currency,
 }) => {
   if (!isOpen || !order) return null;
@@ -149,24 +151,41 @@ export const CancelledOrderModal: React.FC<CancelledOrderModalProps> = ({
         <div className="p-4 bg-zinc-950 border-t border-zinc-800 flex flex-col sm:flex-row items-center gap-2">
           {onReorder && (
             <button
+              id="btn-modal-reorder"
               onClick={() => {
                 soundManager.playChime('click');
                 onReorder(order);
                 onClose();
               }}
-              className="w-full sm:w-1/2 py-3 px-4 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg"
+              className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg active:scale-95"
             >
               <RefreshCw className="w-4 h-4" />
               <span>পুনরায় অর্ডার করুন</span>
             </button>
           )}
 
+          {onOk && (
+            <button
+              id="btn-modal-cancel-ok"
+              onClick={() => {
+                soundManager.playChime('click');
+                onOk();
+                onClose();
+              }}
+              className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg active:scale-95"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>ঠিক আছে (OK)</span>
+            </button>
+          )}
+
           <button
+            id="btn-modal-cancel-close"
             onClick={() => {
               soundManager.playChime('click');
               onClose();
             }}
-            className="w-full sm:w-1/2 py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all"
+            className="w-full sm:flex-1 py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95"
           >
             <span>বন্ধ করুন (Close)</span>
           </button>

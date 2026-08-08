@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   Navigation, MapPin, MessageSquare, Zap, Phone, ExternalLink, CheckCircle2,
-  Bike, User, Edit3, ShieldCheck, Star, Award, Compass, RefreshCw, Radio
+  Bike, User, Edit3, ShieldCheck, Star, Award, Compass, RefreshCw, Radio,
+  Eye, EyeOff
 } from 'lucide-react';
 import { Order, OrderStatus, UserProfile, GeoPoint } from '../types';
 import { MapView } from './MapView';
@@ -39,6 +40,8 @@ export const DriverView: React.FC<DriverViewProps> = ({
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [currentGpsCoords, setCurrentGpsCoords] = useState<{ lat: number; lng: number; accuracy?: number } | null>(null);
+  const [showMap, setShowMap] = useState<boolean>(false);
+  const [showProfile, setShowProfile] = useState<boolean>(false);
 
   // Ref for onUpdateDriverLocation callback to avoid re-triggering watchPosition effect
   const onUpdateDriverLocationRef = useRef(onUpdateDriverLocation);
@@ -101,7 +104,7 @@ export const DriverView: React.FC<DriverViewProps> = ({
   }, [isLiveGpsActive]);
 
   // Active rider profile data from currentUser or fallback to default
-  const riderName = currentUser?.name || 'রুপম ব্যানার্জী (Rider Rupam Banerjee)';
+  const riderName = currentUser?.name || 'তাপিওল বান্দেগী (Rider Tapiul Bandegi)';
   const riderPhone = currentUser?.phone || '+91 98310-99482';
   const riderPhoto = currentUser?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300';
   const vehicleNo = currentUser?.vehicleNumber || 'TVS Apache 160 (WB-02-AK-4819)';
@@ -109,7 +112,7 @@ export const DriverView: React.FC<DriverViewProps> = ({
   const rating = currentUser?.rating || 4.95;
   const trips = currentUser?.tripsCompleted || 1840;
 
-  if (!order) {
+  if (!order || order.status === 'cancelled') {
     return (
       <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-white space-y-4 max-w-xl mx-auto my-12">
         <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center text-3xl">
@@ -139,54 +142,93 @@ export const DriverView: React.FC<DriverViewProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* Driver Top Banner */}
-      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-zinc-900 rounded-3xl p-6 text-white border border-amber-500/30 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <img
-            src={riderPhoto}
-            alt={riderName}
-            className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-lg ring-2 ring-amber-400/30"
-          />
+      {/* Sleek Mini Profile Header & Toggle Bar */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center justify-between text-white shadow-xl gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-orange-600/10 border border-orange-500/20 flex items-center justify-center text-orange-400 shrink-0">
+            <User className="w-5 h-5" />
+          </div>
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="bg-black/40 text-amber-200 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold border border-amber-500/30">
-                🏍️ ডেলিভারি প্রোফাইল • {vehicleNo}
-              </span>
-              <span className="text-xs text-emerald-300 font-bold flex items-center gap-1">
-                ● লাইভ জিপিএস অ্যাক্টিভ ({empId})
+            <div className="text-[10px] text-orange-400 font-extrabold uppercase tracking-wider">ডেলিভারি পার্টনার প্রোফাইল</div>
+            <div className="text-sm font-extrabold text-white flex items-center gap-2 flex-wrap">
+              <span>{riderName}</span>
+              <span className="text-[10px] bg-zinc-800/80 text-zinc-400 px-2.5 py-0.5 rounded-lg font-mono border border-zinc-700/80 font-bold">
+                {vehicleNo}
               </span>
             </div>
-            <h1 className="text-2xl font-extrabold tracking-tight mt-1">{riderName}</h1>
-            <p className="text-xs text-amber-100 flex items-center gap-2 mt-0.5">
-              <span>ফোন: {riderPhone}</span>
-              <span>•</span>
-              <span className="flex items-center gap-1 text-amber-300 font-bold">
-                <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" /> {rating} ({trips}টি ট্রিপ)
-              </span>
-            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 self-end sm:self-center">
+          {/* Active Job Marker */}
+          <div className="bg-orange-500/10 border border-orange-500/20 px-3 py-1.5 rounded-xl text-[10px] font-extrabold font-mono text-orange-400">
+            {t.currentJob}: #{order.orderNumber}
+          </div>
+          
           <button
+            id="btn-toggle-driver-profile"
             onClick={() => {
               soundManager.playChime('click');
-              if (onOpenAuth) onOpenAuth();
+              setShowProfile(!showProfile);
             }}
-            className="px-3.5 py-2 rounded-xl bg-black/40 hover:bg-black/60 border border-amber-400/40 text-amber-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
+            className="px-3.5 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 text-zinc-300 text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer hover:text-white shadow-sm"
           >
-            <Edit3 className="w-4 h-4 text-amber-400" />
-            <span>রাইডার প্রোফাইল এডিট</span>
+            {showProfile ? <EyeOff className="w-4 h-4 text-zinc-400" /> : <Eye className="w-4 h-4 text-orange-400" />}
+            <span>{showProfile ? 'প্রোফাইল লুকান' : 'প্রোফাইল দেখান'}</span>
           </button>
+        </div>
+      </div>
 
-          <div className="bg-black/40 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs space-y-1">
-            <div className="text-amber-200 font-semibold">{t.currentJob}</div>
-            <div className="text-white font-mono text-sm font-extrabold">
-              অর্ডার #{order.orderNumber}
+      {/* Expanded Driver Top Banner */}
+      {showProfile && (
+        <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-zinc-900 rounded-3xl p-6 text-white border border-amber-500/30 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-4">
+            <img
+              src={riderPhoto}
+              alt={riderName}
+              className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-lg ring-2 ring-amber-400/30"
+            />
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="bg-black/40 text-amber-200 px-2.5 py-0.5 rounded-lg text-xs font-mono font-bold border border-amber-500/30">
+                  🏍️ ডেলিভারি প্রোফাইল • {vehicleNo}
+                </span>
+                <span className="text-xs text-emerald-300 font-bold flex items-center gap-1">
+                  ● লাইভ জিপিএস অ্যাক্টিভ ({empId})
+                </span>
+              </div>
+              <h1 className="text-2xl font-extrabold tracking-tight mt-1">{riderName}</h1>
+              <p className="text-xs text-amber-100 flex items-center gap-2 mt-0.5">
+                <span>ফোন: {riderPhone}</span>
+                <span>•</span>
+                <span className="flex items-center gap-1 text-amber-300 font-bold">
+                  <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" /> {rating} ({trips}টি ট্রিপ)
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                soundManager.playChime('click');
+                if (onOpenAuth) onOpenAuth();
+              }}
+              className="px-3.5 py-2 rounded-xl bg-black/40 hover:bg-black/60 border border-amber-400/40 text-amber-200 hover:text-white text-xs font-bold transition-all flex items-center gap-1.5 active:scale-95"
+            >
+              <Edit3 className="w-4 h-4 text-amber-400" />
+              <span>রাইডার প্রোফাইল এডিট</span>
+            </button>
+
+            <div className="bg-black/40 backdrop-blur-md px-4 py-2.5 rounded-2xl border border-white/10 text-xs space-y-1">
+              <div className="text-amber-200 font-semibold">{t.currentJob}</div>
+              <div className="text-white font-mono text-sm font-extrabold">
+                অর্ডার #{order.orderNumber}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Grid: GPS Map & Dispatch Control Board */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -262,25 +304,48 @@ export const DriverView: React.FC<DriverViewProps> = ({
           </div>
 
           <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-4 shadow-xl space-y-3">
-            <div className="flex items-center justify-between text-xs text-zinc-300 px-2">
-              <span className="font-bold flex items-center gap-1.5 text-white">
-                <Navigation className="w-4 h-4 text-orange-400" />
-                টার্ন-বাই-টার্ন জিপিএস ন্যাভিগেশন
-              </span>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-zinc-300 px-2">
+              <div className="flex items-center gap-3">
+                <span className="font-bold flex items-center gap-1.5 text-white">
+                  <Navigation className="w-4 h-4 text-orange-400" />
+                  টার্ন-বাই-টার্ন জিপিএস ন্যাভিগেশন
+                </span>
+                <button
+                  id="btn-toggle-driver-map"
+                  onClick={() => {
+                    soundManager.playChime('click');
+                    setShowMap(!showMap);
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/80 text-zinc-300 text-[10px] font-bold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer shadow-sm hover:text-white"
+                >
+                  {showMap ? <EyeOff className="w-3.5 h-3.5 text-zinc-400" /> : <Eye className="w-3.5 h-3.5 text-orange-400" />}
+                  <span>{showMap ? 'ম্যাপ লুকান' : 'ম্যাপ দেখান'}</span>
+                </button>
+              </div>
               <span className="text-zinc-400 font-mono text-[11px] truncate max-w-[250px]">
                 গন্তব্য: {order.customerLocation.address}
               </span>
             </div>
 
-            <div className="h-[400px] w-full">
-              <MapView
-                restaurantLocation={order.restaurant.location}
-                customerLocation={order.customerLocation}
-                driverLocation={order.currentDriverLocation}
-                routeCoordinates={order.routeCoordinates}
-                driver={order.driver}
-              />
-            </div>
+            {showMap ? (
+              <div className="h-[400px] w-full">
+                <MapView
+                  restaurantLocation={order.restaurant.location}
+                  customerLocation={order.customerLocation}
+                  driverLocation={order.currentDriverLocation}
+                  routeCoordinates={order.routeCoordinates}
+                  driver={order.driver}
+                />
+              </div>
+            ) : (
+              <div className="h-[120px] w-full rounded-2xl bg-zinc-950/60 border border-zinc-800 border-dashed flex flex-col items-center justify-center text-center p-4">
+                <div className="p-2.5 bg-orange-500/10 rounded-full border border-orange-500/20 mb-2">
+                  <Navigation className="w-5 h-5 text-orange-400/80 animate-pulse" />
+                </div>
+                <p className="text-xs font-bold text-zinc-300">🗺️ জিপিএস ন্যাভিগেশন ম্যাপটি লুকানো আছে</p>
+                <p className="text-[10px] text-zinc-500 mt-0.5">ন্যাভিগেশন দেখতে উপরের "ম্যাপ দেখান" বোতামটিতে ক্লিক করুন</p>
+              </div>
+            )}
           </div>
 
           {/* Quick Courier Action Buttons */}

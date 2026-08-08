@@ -1,10 +1,175 @@
-// Web Audio API synth sound generator for food delivery updates
+// Web Audio API synth sound generator and Web Speech API Voice synthesis for food delivery updates
+
+export type SoundEventKey =
+  | 'order_placed'
+  | 'kitchen_new_order'
+  | 'driver_new_order'
+  | 'kitchen_ready'
+  | 'driver_pickup'
+  | 'nearby'
+  | 'delivered'
+  | 'cancelled'
+  | 'push_notification';
+
+export type ToneType =
+  | 'chime_default'
+  | 'chime_bell'
+  | 'chime_siren'
+  | 'chime_gong'
+  | 'chime_fanfare'
+  | 'chime_buzzer'
+  | 'voice_bn'
+  | 'voice_en'
+  | 'silent';
+
+export interface SoundEventConfig {
+  soundType: ToneType;
+  customVoiceBn?: string;
+  customVoiceEn?: string;
+}
+
+export type SoundConfigMap = Record<SoundEventKey, SoundEventConfig>;
+
+export const DEFAULT_SOUND_CONFIGS: SoundConfigMap = {
+  order_placed: {
+    soundType: 'voice_bn',
+    customVoiceBn: 'আপনার নতুন অর্ডারটি সফলভাবে প্লেস করা হয়েছে!',
+    customVoiceEn: 'Your new order has been placed successfully!'
+  },
+  kitchen_new_order: {
+    soundType: 'voice_bn',
+    customVoiceBn: 'সাবধান কিচেন শেফ! আপনার রান্নাঘরে একটি নতুন অর্ডারের টিকেট এসেছে। দ্রুত রান্না শুরু করুন!',
+    customVoiceEn: 'Attention kitchen chef! A new food order ticket has arrived in the kitchen!'
+  },
+  driver_new_order: {
+    soundType: 'voice_bn',
+    customVoiceBn: 'মনোযোগ দিন ডেলিভারি রাইডার! আপনার নিকট একটি নতুন ডেলিভারি অর্ডার এসেছে। অ্যাপ থেকে রিসিভ করুন!',
+    customVoiceEn: 'Attention delivery rider! A new food delivery assignment has arrived for you!'
+  },
+  kitchen_ready: {
+    soundType: 'chime_gong',
+    customVoiceBn: 'রান্নাঘরে খাবার তৈরি সম্পন্ন, ডেলিভারি রাইডার অ্যাসাইন করা হচ্ছে!',
+    customVoiceEn: 'Food is ready in kitchen, assigning delivery rider!'
+  },
+  driver_pickup: {
+    soundType: 'voice_bn',
+    customVoiceBn: 'ডেলিভারি রাইডার আপনার খাবার পিকআপ করেছে এবং গন্তব্যের উদ্দেশ্যে রওনা দিয়েছে!',
+    customVoiceEn: 'The delivery rider has picked up your food and is on the way!'
+  },
+  nearby: {
+    soundType: 'chime_bell',
+    customVoiceBn: 'ডেলিভারি রাইডার আপনার ঠিকানার কাছাকাছি পৌঁছে গেছে!',
+    customVoiceEn: 'The delivery rider is arriving near your location!'
+  },
+  delivered: {
+    soundType: 'voice_bn',
+    customVoiceBn: 'অভিনন্দন! আপনার খাবার সফলভাবে ডেলিভারি হয়েছে। উপভোগ করুন!',
+    customVoiceEn: 'Congratulations! Your food order has been delivered successfully!'
+  },
+  cancelled: {
+    soundType: 'chime_buzzer',
+    customVoiceBn: 'দুঃখিত, আপনার অর্ডারটি বাতিল করা হয়েছে।',
+    customVoiceEn: 'Sorry, your order has been cancelled.'
+  },
+  push_notification: {
+    soundType: 'chime_default',
+    customVoiceBn: 'ফাস্টবাইট এক্সপ্রেস থেকে একটি নতুন আপডেট নোটিফিকেশন এসেছে।',
+    customVoiceEn: 'You have a new update notification from FastBite Express.'
+  }
+};
+
+const SOUND_SETTINGS_STORAGE_KEY = 'fastbite_sound_event_configs_v2';
+
 class SoundManager {
   private audioCtx: AudioContext | null = null;
   private soundEnabled: boolean = true;
+  private eventConfigs: SoundConfigMap = { ...DEFAULT_SOUND_CONFIGS };
+  private cachedVoices: SpeechSynthesisVoice[] = [];
 
   constructor() {
-    // AudioContext lazily initialized on user interaction
+    this.loadConfigs();
+    this.initVoices();
+    this.setupAndroidAudioUnlock();
+  }
+
+  private setupAndroidAudioUnlock() {
+    if (typeof window === 'undefined') return;
+
+    const unlock = () => {
+      // Resume AudioContext on Android/Mobile user touch
+      if (this.audioCtx && this.audioCtx.state === 'suspended') {
+        this.audioCtx.resume();
+      } else {
+        this.getContext();
+      }
+
+      // Resume SpeechSynthesis on Android
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.resume();
+          this.cachedVoices = window.speechSynthesis.getVoices();
+        } catch {
+          // Ignore
+        }
+      }
+
+      window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('pointerdown', unlock);
+    };
+
+    window.addEventListener('touchstart', unlock, { passive: true, once: true });
+    window.addEventListener('click', unlock, { passive: true, once: true });
+    window.addEventListener('pointerdown', unlock, { passive: true, once: true });
+  }
+
+  private initVoices() {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const updateVoices = () => {
+        try {
+          this.cachedVoices = window.speechSynthesis.getVoices();
+        } catch {
+          // Ignore
+        }
+      };
+      updateVoices();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = updateVoices;
+      }
+    }
+  }
+
+  private loadConfigs() {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem(SOUND_SETTINGS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        this.eventConfigs = { ...DEFAULT_SOUND_CONFIGS, ...parsed };
+      }
+    } catch {
+      this.eventConfigs = { ...DEFAULT_SOUND_CONFIGS };
+    }
+  }
+
+  public saveConfigs(newConfigs: SoundConfigMap) {
+    this.eventConfigs = { ...newConfigs };
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(SOUND_SETTINGS_STORAGE_KEY, JSON.stringify(this.eventConfigs));
+      } catch {
+        // Storage fallback
+      }
+    }
+  }
+
+  public getConfigs(): SoundConfigMap {
+    return { ...this.eventConfigs };
+  }
+
+  public resetToDefault(): SoundConfigMap {
+    this.saveConfigs(DEFAULT_SOUND_CONFIGS);
+    return { ...DEFAULT_SOUND_CONFIGS };
   }
 
   private getContext(): AudioContext | null {
@@ -29,29 +194,117 @@ class SoundManager {
     return this.soundEnabled;
   }
 
-  public playChime(type: 'order_placed' | 'kitchen_ready' | 'driver_pickup' | 'nearby' | 'delivered' | 'click' | 'push_notification') {
+  private currentAudio: HTMLAudioElement | null = null;
+
+  public speak(text: string, lang: 'bn' | 'en' = 'bn') {
+    if (!this.soundEnabled || typeof window === 'undefined') return;
+
+    // Trigger haptic vibration on Android devices if supported
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate([150, 100, 200]);
+      } catch {
+        // Ignore
+      }
+    }
+
+    if (this.currentAudio) {
+      try {
+        this.currentAudio.pause();
+        this.currentAudio = null;
+      } catch {
+        // Ignore
+      }
+    }
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.cancel();
+      } catch {
+        // Ignore
+      }
+    }
+
+    const targetLang = lang === 'bn' ? 'bn' : 'en';
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${targetLang}&q=${encodeURIComponent(text)}`;
+
+    let fallbackTriggered = false;
+    const fallbackToWebSpeech = () => {
+      if (fallbackTriggered) return;
+      fallbackTriggered = true;
+      if (!('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.resume();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = lang === 'bn' ? 'bn-BD' : 'en-US';
+        utterance.rate = 0.98;
+        utterance.pitch = 1.35;
+
+        const voices = this.cachedVoices.length > 0 
+          ? this.cachedVoices 
+          : window.speechSynthesis.getVoices();
+
+        if (voices.length > 0) {
+          const femaleVoice = voices.find(v => {
+            const name = v.name.toLowerCase();
+            const matchesLang = lang === 'bn' 
+              ? (v.lang.includes('bn') || v.lang.includes('hi') || v.lang.includes('in'))
+              : v.lang.includes('en');
+            
+            return matchesLang && (
+              name.includes('female') || 
+              name.includes('zira') || 
+              name.includes('samantha') || 
+              name.includes('swara') || 
+              name.includes('heera') || 
+              name.includes('kalpana') || 
+              name.includes('victoria') ||
+              name.includes('karen') ||
+              name.includes('natural') ||
+              name.includes('google') ||
+              name.includes('android')
+            );
+          }) || voices.find(v => (lang === 'bn' ? (v.lang.includes('bn') || v.lang.includes('hi')) : v.lang.includes('en')));
+
+          if (femaleVoice) {
+            utterance.voice = femaleVoice;
+          }
+        }
+        window.speechSynthesis.speak(utterance);
+      } catch {
+        // Fallback error
+      }
+    };
+
+    try {
+      const audio = new Audio(ttsUrl);
+      this.currentAudio = audio;
+      audio.volume = 1.0;
+
+      audio.onerror = () => {
+        fallbackToWebSpeech();
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {
+          fallbackToWebSpeech();
+        });
+      }
+    } catch {
+      fallbackToWebSpeech();
+    }
+  }
+
+  public playToneDirect(tone: ToneType) {
     const ctx = this.getContext();
-    if (!ctx) return;
+    if (!ctx || tone === 'silent') return;
 
     try {
       const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
 
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      if (type === 'click') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(600, now);
-        osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        osc.start(now);
-        osc.stop(now + 0.05);
-      } else if (type === 'push_notification') {
-        // Melodious modern dual-tone notification ringtone (marimba/bell style)
-        const notes = [659.25, 880, 1046.50]; // E5, A5, C6
+      if (tone === 'chime_default') {
+        const notes = [659.25, 880, 1046.50];
         notes.forEach((freq, idx) => {
           const o = ctx.createOscillator();
           const g = ctx.createGain();
@@ -64,49 +317,120 @@ class SoundManager {
           o.start(now + idx * 0.1);
           o.stop(now + idx * 0.1 + 0.3);
         });
-      } else if (type === 'order_placed') {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(440, now); // A4
-        osc.frequency.setValueAtTime(554.37, now + 0.1); // C#5
-        osc.frequency.setValueAtTime(659.25, now + 0.2); // E5
-        gain.gain.setValueAtTime(0.15, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-        osc.start(now);
-        osc.stop(now + 0.35);
-      } else if (type === 'kitchen_ready') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, now); // C5
-        osc.frequency.setValueAtTime(659.25, now + 0.12); // E5
-        gain.gain.setValueAtTime(0.12, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-        osc.start(now);
-        osc.stop(now + 0.3);
-      } else if (type === 'driver_pickup' || type === 'nearby') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(587.33, now); // D5
-        osc.frequency.setValueAtTime(880, now + 0.15); // A5
-        gain.gain.setValueAtTime(0.15, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-        osc.start(now);
-        osc.stop(now + 0.4);
-      } else if (type === 'delivered') {
-        // Success chord sequence
-        const freqs = [523.25, 659.25, 783.99, 1046.50];
+      } else if (tone === 'chime_bell') {
+        // High soft bell tone
+        const freqs = [783.99, 1046.50];
         freqs.forEach((f, i) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(f, now + i * 0.12);
+          g.connect(ctx.destination);
+          o.connect(g);
+          g.gain.setValueAtTime(0.2, now + i * 0.12);
+          g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.5);
+          o.start(now + i * 0.12);
+          o.stop(now + i * 0.12 + 0.5);
+        });
+      } else if (tone === 'chime_siren') {
+        // Urgent alert siren ring
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(400, now);
+        o.frequency.linearRampToValueAtTime(800, now + 0.2);
+        o.frequency.linearRampToValueAtTime(400, now + 0.4);
+        g.connect(ctx.destination);
+        o.connect(g);
+        g.gain.setValueAtTime(0.12, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+        o.start(now);
+        o.stop(now + 0.45);
+      } else if (tone === 'chime_gong') {
+        // Deep warm kitchen gong
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(261.63, now); // Low C4
+        o.frequency.exponentialRampToValueAtTime(130.81, now + 0.6);
+        g.connect(ctx.destination);
+        o.connect(g);
+        g.gain.setValueAtTime(0.25, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+        o.start(now);
+        o.stop(now + 0.6);
+      } else if (tone === 'chime_fanfare') {
+        // Major chord fanfare
+        const chord = [523.25, 659.25, 783.99, 1046.50];
+        chord.forEach((f, i) => {
           const o = ctx.createOscillator();
           const g = ctx.createGain();
           o.type = 'triangle';
           o.frequency.setValueAtTime(f, now + i * 0.08);
           g.connect(ctx.destination);
           o.connect(g);
-          g.gain.setValueAtTime(0.1, now + i * 0.08);
-          g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.4);
+          g.gain.setValueAtTime(0.15, now + i * 0.08);
+          g.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.45);
           o.start(now + i * 0.08);
-          o.stop(now + i * 0.08 + 0.4);
+          o.stop(now + i * 0.08 + 0.45);
         });
+      } else if (tone === 'chime_buzzer') {
+        // Low danger warning buzzer
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(180, now);
+        o.frequency.setValueAtTime(140, now + 0.15);
+        g.connect(ctx.destination);
+        o.connect(g);
+        g.gain.setValueAtTime(0.2, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+        o.start(now);
+        o.stop(now + 0.4);
       }
     } catch {
-      // Audio context policy fallback
+      // Audio error
+    }
+  }
+
+  public playChime(type: SoundEventKey | 'click') {
+    if (!this.soundEnabled) return;
+
+    if (type === 'click') {
+      const ctx = this.getContext();
+      if (!ctx) return;
+      try {
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        osc.start(now);
+        osc.stop(now + 0.05);
+      } catch {
+        // Audio error
+      }
+      return;
+    }
+
+    const config = this.eventConfigs[type] || DEFAULT_SOUND_CONFIGS[type];
+    if (!config || config.soundType === 'silent') return;
+
+    if (config.soundType === 'voice_bn') {
+      const msg = config.customVoiceBn || DEFAULT_SOUND_CONFIGS[type].customVoiceBn || '';
+      this.playToneDirect('chime_bell'); // short ping before voice
+      setTimeout(() => this.speak(msg, 'bn'), 300);
+    } else if (config.soundType === 'voice_en') {
+      const msg = config.customVoiceEn || DEFAULT_SOUND_CONFIGS[type].customVoiceEn || '';
+      this.playToneDirect('chime_bell');
+      setTimeout(() => this.speak(msg, 'en'), 300);
+    } else {
+      this.playToneDirect(config.soundType);
     }
   }
 }

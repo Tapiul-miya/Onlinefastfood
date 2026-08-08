@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   MenuItem, SelectedOption, CartItem, Order, OrderStatus, 
@@ -6,13 +6,14 @@ import {
 } from './types';
 import { App as CapApp } from '@capacitor/app';
 import { SplashScreen as CapSplashScreen } from '@capacitor/splash-screen';
+import { MENU_ITEMS } from './data/mockData';
 import { 
-  MENU_ITEMS, INITIAL_RESTAURANT, INITIAL_CUSTOMER_LOCATION, 
+  INITIAL_RESTAURANT, INITIAL_CUSTOMER_LOCATION, 
   DEFAULT_DRIVER, INITIAL_DRIVERS_LIST, SAMPLE_ROUTE_COORDINATES, INITIAL_PRESET_LOGS,
   REGIONAL_PRESET_LOCATIONS
-} from './data/mockData';
+} from './data/constants';
 import { Language, Currency, formatPrice, TRANSLATIONS } from './utils/i18n';
-import { soundManager } from './utils/audio';
+import { soundManager, SoundEventKey } from './utils/audio';
 import { db } from './lib/firebase';
 import { collection, doc, setDoc, updateDoc, onSnapshot, query, deleteDoc, getDocs } from 'firebase/firestore';
 
@@ -33,7 +34,8 @@ import { SplashScreen } from './components/SplashScreen';
 import { updateAppTitleAndIcon } from './utils/apkConfigs';
 
 import { 
-  Flame, History, Sparkles, ShoppingBag, ArrowRight, Utensils, Bike, MapPin, Compass, ShieldCheck, Lock, AlertTriangle
+  Flame, History, Sparkles, ShoppingBag, ArrowRight, Utensils, Bike, MapPin, Compass, ShieldCheck, Lock, AlertTriangle,
+  Wifi, WifiOff
 } from 'lucide-react';
 
 const INITIAL_ROLE_PROFILES: Record<UserRole, UserProfile> = {
@@ -49,10 +51,10 @@ const INITIAL_ROLE_PROFILES: Record<UserRole, UserProfile> = {
   },
   driver: {
     id: 'drv_01',
-    name: 'রুপম ব্যানার্জী (Rider Rupam Banerjee)',
+    name: 'তাপিওল বান্দেগী (Rider Tapiul Bandegi)',
     phone: '+91 98310-99482',
     role: 'driver',
-    email: 'rider.rupam@fastbite.in',
+    email: 'tapiul.bandegi@gmail.com',
     address: 'সল্টলেক বাস ডিপো, কলকাতা',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
     vehicleNumber: 'WB-02-AK-4819',
@@ -292,6 +294,23 @@ export default function App() {
     }
   };
 
+  const handleClearOrderHistory = async () => {
+    try {
+      const q = query(collection(db, "orders"));
+      const snapshot = await getDocs(q);
+      const deletePromises = snapshot.docs
+        .filter(doc => {
+          const data = doc.data();
+          return data.status === 'delivered' || data.status === 'cancelled';
+        })
+        .map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+      setOrderHistory(prev => prev.filter(o => o.status !== 'delivered' && o.status !== 'cancelled'));
+    } catch (e) {
+      console.error("Clear Order History Error:", e);
+    }
+  };
+
   const handleCancelOrder = (reason?: string) => {
     if (activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled') {
       const cancelDetail = reason || 'কাস্টমার নিজে অর্ডার বাতিল করেছেন।';
@@ -351,7 +370,7 @@ export default function App() {
 
     const updatedDriverObj: Driver = {
       id: driverProfile.id || 'usr_driver_01',
-      name: driverProfile.name || 'রুপম ব্যানার্জী (Rider Rupam Banerjee)',
+      name: driverProfile.name || 'তাপিওল বান্দেগী (Rider Tapiul Bandegi)',
       phone: driverProfile.phone || '+91 98310-99482',
       photo: driverProfile.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
       vehicleType: 'bike',
@@ -367,12 +386,24 @@ export default function App() {
 
     setActiveOrder((prev) => {
       if (!prev) return null;
-      return {
+      if (
+        prev.driver?.name === updatedDriverObj.name &&
+        prev.driver?.vehiclePlate === updatedDriverObj.vehiclePlate &&
+        prev.driver?.photo === updatedDriverObj.photo &&
+        prev.driver?.phone === updatedDriverObj.phone
+      ) {
+        return prev;
+      }
+      const updated = {
         ...prev,
         driver: updatedDriverObj,
       };
+      if (role === 'driver') {
+        syncOrderToFirebase(updated);
+      }
+      return updated;
     });
-  }, [roleProfiles.driver?.name, roleProfiles.driver?.vehicleNumber, roleProfiles.driver?.avatar, roleProfiles.driver?.phone]);
+  }, [roleProfiles.driver?.name, roleProfiles.driver?.vehicleNumber, roleProfiles.driver?.avatar, roleProfiles.driver?.phone, role]);
 
   // Real device GPS driver location update handler
   const handleUpdateDriverLocation = (newLoc: GeoPoint, addressStr: string) => {
@@ -525,7 +556,12 @@ export default function App() {
     } catch {}
   }, [pushNotificationsDict]);
 
-  const triggerPushNotification = (title: string, body: string, targetRoles: UserRole[] = ['customer', 'admin', 'kitchen', 'driver']) => {
+  const triggerPushNotification = (
+    title: string, 
+    body: string, 
+    targetRoles: UserRole[] = ['customer', 'admin', 'kitchen', 'driver'],
+    soundType?: SoundEventKey
+  ) => {
     const newPush = {
       id: `push_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
       title,
@@ -545,7 +581,7 @@ export default function App() {
     // Only show toast/chime if the current role is in targetRoles and push is enabled
     if (targetRoles.includes(role) && pushEnabled) {
       if (soundEnabled) {
-        soundManager.playChime('push_notification');
+        soundManager.playChime(soundType || 'push_notification');
       }
       setActivePushToast({ title, body });
       setTimeout(() => {
@@ -598,7 +634,108 @@ export default function App() {
 
   // Active Live Order
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
-  const [orderHistory, setOrderHistory] = useState<Order[]>([]);
+  const [orderHistoryState, setOrderHistory] = useState<Order[]>([]);
+
+  // Internet connection monitoring states
+  const [isOffline, setIsOffline] = useState<boolean>(typeof navigator !== 'undefined' ? !navigator.onLine : false);
+  const [isSlowConnection, setIsSlowConnection] = useState<boolean>(false);
+  
+  // Simulated connection status for testing
+  const [simulatedOffline, setSimulatedOffline] = useState<boolean>(false);
+  const [simulatedSlow, setSimulatedSlow] = useState<boolean>(false);
+
+  // Connection monitoring effect
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOffline(false);
+      try {
+        soundManager.playChime('push_notification');
+      } catch {}
+      triggerPushNotification(
+        'ইন্টারনেট সংযুক্ত (Connected)', 
+        'আপনার ইন্টারনেট কানেকশন পুনরায় সচল হয়েছে। আপনার লাইভ আপডেট সফলভাবে সিনক্রোনাইজড হচ্ছে।', 
+        ['customer', 'driver', 'kitchen', 'admin']
+      );
+    };
+
+    const handleOffline = () => {
+      setIsOffline(true);
+      try {
+        soundManager.playChime('push_notification');
+      } catch {}
+      triggerPushNotification(
+        'ইন্টারনেট বিচ্ছিন্ন (Offline)', 
+        'আপনার ইন্টারনেট কানেকশন বিচ্ছিন্ন হয়েছে! লাইভ আপডেট পেতে ইন্টারনেট সচল করুন।', 
+        ['customer', 'driver', 'kitchen', 'admin']
+      );
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    const conn = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+    const checkConnectionSpeed = () => {
+      if (conn) {
+        const slowTypes = ['slow-2g', '2g', '3g'];
+        if (slowTypes.includes(conn.effectiveType) || (conn.rtt && conn.rtt > 800)) {
+          setIsSlowConnection(true);
+        } else {
+          setIsSlowConnection(false);
+        }
+      }
+    };
+
+    if (conn) {
+      conn.addEventListener('change', checkConnectionSpeed);
+      checkConnectionSpeed();
+    }
+
+    const interval = setInterval(() => {
+      setIsOffline(!navigator.onLine);
+      if (conn) {
+        checkConnectionSpeed();
+      }
+    }, 5000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      if (conn) {
+        conn.removeEventListener('change', checkConnectionSpeed);
+      }
+      clearInterval(interval);
+    };
+  }, []);
+
+  const orderHistory = useMemo(() => {
+    const seen = new Set<string>();
+    return orderHistoryState.filter(order => {
+      if (!order || !order.id) return false;
+      if (seen.has(order.id)) return false;
+      seen.add(order.id);
+      return true;
+    });
+  }, [orderHistoryState]);
+
+  // Determine if the internet (real-time connection) is actively needed.
+  // It is needed if we have simulated a status (for testing), if the user has an active/pending order, 
+  // or if the user is in driver/kitchen/admin roles where they must see and update live orders in real-time.
+  const isInternetNeeded = useMemo(() => {
+    if (simulatedOffline || simulatedSlow) {
+      return true;
+    }
+    if (role !== 'customer') {
+      return true;
+    }
+    if (activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled') {
+      return true;
+    }
+    const hasPending = orderHistory.some(o => o.status !== 'delivered' && o.status !== 'cancelled');
+    if (hasPending) {
+      return true;
+    }
+    return false;
+  }, [activeOrder, orderHistory, role, simulatedOffline, simulatedSlow]);
 
   const syncOrderToFirebase = async (order: Order | null) => {
     if (!order) return;
@@ -609,53 +746,153 @@ export default function App() {
     }
   };
 
+  // Keep refs for any variables used inside onSnapshot callbacks to avoid stale closures
+  const roleRef = useRef(role);
+  const triggerPushNotificationRef = useRef(triggerPushNotification);
+
+  useEffect(() => {
+    roleRef.current = role;
+  }, [role]);
+
+  useEffect(() => {
+    triggerPushNotificationRef.current = triggerPushNotification;
+  }, [triggerPushNotification]);
+
+  // Sync sound settings in real-time from Firestore across all apps/devices
+  useEffect(() => {
+    try {
+      const unsub = onSnapshot(doc(db, "settings", "sound_configs"), (docSnap) => {
+        if (docSnap.exists()) {
+          const remoteData = docSnap.data();
+          if (remoteData && typeof remoteData === 'object') {
+            soundManager.saveConfigs(remoteData as any);
+          }
+        }
+      });
+      return () => unsub();
+    } catch (e) {
+      console.warn("Realtime sound config sync error:", e);
+    }
+  }, []);
+
+  // Keep track of the last known statuses of orders
+  const lastKnownStatusesRef = useRef<Record<string, OrderStatus>>({});
+  const isInitialSnapshotRef = useRef(true);
+
   // Real-time Firestore sync across devices and Android app instances
   useEffect(() => {
     try {
       const q = query(collection(db, "orders"));
       const unsubscribe = onSnapshot(q, (snapshot) => {
+        // Build the current list of all orders to keep orderHistory synchronized in real-time!
+        const allOrders: Order[] = [];
+        snapshot.forEach((doc) => {
+          allOrders.push(doc.data() as Order);
+        });
+        // Sort by id descending (newest first)
+        allOrders.sort((a, b) => b.id.localeCompare(a.id));
+        setOrderHistory(allOrders);
+
+        // If it's the initial snapshot (on app load/mount), we populate the last known statuses and don't notify
+        if (isInitialSnapshotRef.current) {
+          snapshot.forEach((doc) => {
+            const o = doc.data() as Order;
+            lastKnownStatusesRef.current[o.id] = o.status;
+          });
+          isInitialSnapshotRef.current = false;
+          return;
+        }
+
         snapshot.docChanges().forEach((change) => {
           const orderData = change.doc.data() as Order;
+          
           if (change.type === 'added') {
-            setActiveOrder((current) => {
-              if (!current || current.id !== orderData.id) {
-                // Determine roles that should see "New Cloud Order"
-                // Usually admin and kitchen if pending, but we'll send to admin, kitchen
-                triggerPushNotification(
+            // New order added after initial load
+            const oldStatus = lastKnownStatusesRef.current[orderData.id];
+            if (!oldStatus) {
+              lastKnownStatusesRef.current[orderData.id] = orderData.status;
+              
+              // Only notify if it's a genuinely new order placed
+              if (orderData.status === 'placed') {
+                let soundToPlay: SoundEventKey = 'kitchen_new_order';
+                if (roleRef.current === 'driver') {
+                  soundToPlay = 'driver_new_order';
+                } else if (roleRef.current === 'customer') {
+                  soundToPlay = 'order_placed';
+                }
+
+                triggerPushNotificationRef.current(
                   `🛎️ ক্লাউড অর্ডার অ্যালার্ট: #${orderData.orderNumber}`,
                   `অন্য ডিভাইস থেকে নতুন অর্ডার এসেছে (${orderData.items.length}টি আইটেম)। গ্রাহক: ${orderData.customerName}`,
-                  ['admin', 'kitchen']
+                  ['admin', 'kitchen', 'driver', 'customer'],
+                  soundToPlay
                 );
+              }
+            }
+          } else if (change.type === 'modified') {
+            const oldStatus = lastKnownStatusesRef.current[orderData.id];
+
+            // ALWAYS update the activeOrder state if this order is our currently tracked active order
+            setActiveOrder((current) => {
+              if (current && current.id === orderData.id) {
+                // If there's a new message, play a sound!
+                const currentMsgsLength = current.chatMessages?.length || 0;
+                const newMsgsLength = orderData.chatMessages?.length || 0;
+                if (newMsgsLength > currentMsgsLength) {
+                  const lastMsg = orderData.chatMessages?.[newMsgsLength - 1];
+                  if (lastMsg && lastMsg.sender !== roleRef.current) {
+                    try {
+                      soundManager.playChime('push_notification');
+                    } catch (soundError) {
+                      console.warn("Could not play chat notification chime:", soundError);
+                    }
+                  }
+                }
                 return orderData;
               }
               return current;
             });
-          } else if (change.type === 'modified') {
-            setActiveOrder((current) => {
-              if (current && current.id === orderData.id && current.status !== orderData.status) {
-                let targets: UserRole[] = ['customer', 'admin'];
-                if (orderData.status === 'confirmed' || orderData.status === 'preparing') targets.push('kitchen');
-                if (orderData.status === 'ready_for_pickup' || orderData.status === 'on_the_way' || orderData.status === 'delivered') targets.push('driver');
+            
+            if (oldStatus && oldStatus !== orderData.status) {
+              // Status of an order changed!
+              lastKnownStatusesRef.current[orderData.id] = orderData.status;
+              
+              let targets: UserRole[] = ['customer', 'admin', 'kitchen', 'driver'];
 
-                triggerPushNotification(
-                  `📦 অর্ডার আপডেট (#${orderData.orderNumber})`,
-                  `স্ট্যাটাস পরিবর্তিত হয়ে হয়েছে: ${orderData.status}`,
-                  targets
-                );
+              // Determine role-appropriate sound based on status and current app role
+              let statusSound: SoundEventKey = 'push_notification';
+              if (orderData.status === 'placed') {
+                statusSound = roleRef.current === 'driver' ? 'driver_new_order' : roleRef.current === 'kitchen' ? 'kitchen_new_order' : 'order_placed';
+              } else if (orderData.status === 'confirmed' || orderData.status === 'preparing') {
+                statusSound = roleRef.current === 'kitchen' ? 'kitchen_new_order' : 'push_notification';
+              } else if (orderData.status === 'ready_for_pickup') {
+                statusSound = roleRef.current === 'driver' ? 'driver_new_order' : 'kitchen_ready';
+              } else if (orderData.status === 'on_the_way') {
+                statusSound = 'driver_pickup';
+              } else if (orderData.status === 'delivered') {
+                statusSound = 'delivered';
+              } else if (orderData.status === 'cancelled') {
+                statusSound = 'cancelled';
               }
-              // Wait, if it's a different order than current active, we still want to notify other roles maybe?
-              // But if it's the active order, we return it.
-              // We'll just return orderData if it matches current, else keep current.
-              if (current && current.id === orderData.id) {
-                 return orderData;
-              }
-              
-              if (!current) {
-                 return orderData;
-              }
-              
-              return current;
-            });
+
+              // Translate status to Bengali beautifully
+              let statusBn = orderData.status as string;
+              if (orderData.status === 'placed') statusBn = 'অর্ডার গ্রহণ করা হয়েছে (Placed)';
+              else if (orderData.status === 'confirmed') statusBn = 'অর্ডার নিশ্চিত করা হয়েছে (Confirmed)';
+              else if (orderData.status === 'preparing') statusBn = 'খাবার প্রস্তুত হচ্ছে (Preparing)';
+              else if (orderData.status === 'ready_for_pickup') statusBn = 'ডেলিভারির জন্য প্রস্তুত (Ready for Pickup)';
+              else if (orderData.status === 'on_the_way') statusBn = 'রাইডার ডেলিভারির জন্য রওনা দিয়েছেন (On the Way)';
+              else if (orderData.status === 'delivered') statusBn = 'খাবার সফলভাবে ডেলিভারি করা হয়েছে 🎉 (Delivered)';
+              else if (orderData.status === 'cancelled') statusBn = 'দুঃখিত, অর্ডারটি বাতিল করা হয়েছে (Cancelled)';
+
+              // Trigger push notification with the translated status and the respective sound
+              triggerPushNotificationRef.current(
+                `📦 অর্ডার আপডেট (#${orderData.orderNumber})`,
+                `আপনার অর্ডারের বর্তমান অবস্থা: ${statusBn}`,
+                targets,
+                statusSound
+              );
+            }
           }
         });
       }, (err) => {
@@ -668,20 +905,49 @@ export default function App() {
     }
   }, []);
 
+  // Auto-clear customer tracking screen when order is delivered, and return to food menu
+  useEffect(() => {
+    if (activeOrder && activeOrder.status === 'delivered' && role === 'customer') {
+      const timer = setTimeout(() => {
+        setCustomerTab('menu');
+        setActiveOrder(null);
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [activeOrder?.status, role]);
+
   // Real-time GPS Simulation State
   const [simSpeed, setSimSpeed] = useState<number>(1);
   const [isSimPaused, setIsSimPaused] = useState<boolean>(false);
   const [routeProgressIdx, setRouteProgressIdx] = useState<number>(0);
 
-  // Live Chat Messages
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      id: 'm1',
-      sender: 'driver',
-      text: "নমস্কার! আমি রূপম ব্যানার্জী, আপনার ফাস্টবাইট থার্মাল ব্যাগ নিয়ে আপনার স্পেশাল খাবারের ডেলিভারিতে প্রস্তুত আছি।",
-      timestamp: '১২:৩২ PM',
-    },
-  ]);
+  // Live Chat Messages derived from activeOrder on Firestore
+  const chatMessages = useMemo(() => {
+    const driverRawName = activeOrder?.driver?.name || roleProfiles.driver?.name || 'তাপিওল বান্দেগী';
+    const driverCleanName = driverRawName.split('(')[0].replace(/rider/i, '').trim();
+
+    if (activeOrder?.chatMessages && activeOrder.chatMessages.length > 0) {
+      return activeOrder.chatMessages.map(msg => {
+        if (msg.sender === 'driver' && (msg.text.includes('রুপম ব্যানার্জী') || msg.text.includes('রূপম ব্যানার্জী') || msg.text.includes('Rupam Banerjee'))) {
+          const updatedText = msg.text
+            .replace(/রুপম ব্যানার্জী/g, driverCleanName)
+            .replace(/রূপম ব্যানার্জী/g, driverCleanName)
+            .replace(/Rupam Banerjee/g, driverCleanName);
+          return { ...msg, text: updatedText };
+        }
+        return msg;
+      });
+    }
+
+    return [
+      {
+        id: 'm1',
+        sender: 'driver',
+        text: `নমস্কার! আমি ${driverCleanName}, আপনার ফাস্টবাইট থার্মাল ব্যাগ নিয়ে আপনার স্পেশাল খাবারের ডেলিভারিতে প্রস্তুত আছি।`,
+        timestamp: '১২:৩২ PM',
+      },
+    ];
+  }, [activeOrder?.chatMessages, activeOrder?.driver?.name, roleProfiles.driver?.name]);
 
   // Default state starts clean without any active order, so user places their own order!
   // If user wants to quickly test live tracking, they can also trigger a demo order.
@@ -705,7 +971,7 @@ export default function App() {
     const driverLoc = parseLocationCoordinates(driverAddressStr);
     const activeDriverObj: Driver = {
       id: roleProfiles.driver?.id || 'usr_driver_01',
-      name: roleProfiles.driver?.name || 'রুপম ব্যানার্জী (Rider Rupam Banerjee)',
+      name: roleProfiles.driver?.name || 'তাপিওল বান্দেগী (Rider Tapiul Bandegi)',
       phone: roleProfiles.driver?.phone || '+91 98310-99482',
       photo: roleProfiles.driver?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
       vehicleType: 'bike',
@@ -888,7 +1154,7 @@ export default function App() {
     const driverLoc = parseLocationCoordinates(driverAddressStr);
     const activeDriverObj: Driver = {
       id: roleProfiles.driver?.id || 'usr_driver_01',
-      name: roleProfiles.driver?.name || 'রুপম ব্যানার্জী (Rider Rupam Banerjee)',
+      name: roleProfiles.driver?.name || 'তাপিওল বান্দেগী (Rider Tapiul Bandegi)',
       phone: roleProfiles.driver?.phone || '+91 98310-99482',
       photo: roleProfiles.driver?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
       vehicleType: 'bike',
@@ -950,7 +1216,8 @@ export default function App() {
     triggerPushNotification(
       `🛎️ রেস্তোরাঁ ও পার্টনার অ্যালার্ট: নতুন অর্ডার #${newOrder.orderNumber}`,
       `কিচেনে নতুন অর্ডার এসেছে (${newOrder.items.length}টি আইটেম)। গ্রাহক: ${newOrder.customerName}।`,
-      ['admin', 'kitchen', 'driver']
+      ['admin', 'kitchen', 'driver'],
+      'kitchen_new_order'
     );
 
     // Trigger Order Success Modal & Sound
@@ -987,7 +1254,9 @@ export default function App() {
       };
       syncOrderToFirebase(updated);
       if (nextStatus === 'cancelled') {
-        setCancelledModalOrder(updated);
+        if (role === 'customer') {
+          setCancelledModalOrder(updated);
+        }
         setOrderHistory(h => [updated, ...h]);
         triggerPushNotification(
           `🛑 অর্ডার #${updated.orderNumber} ক্যানসেল করা হয়েছে`,
@@ -1022,34 +1291,50 @@ export default function App() {
 
   // Chat message send handler
   const handleSendChatMessage = (text: string) => {
+    if (!activeOrder) return;
     const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const senderRole = role === 'driver' ? 'driver' : 'customer';
     const newMsg: ChatMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-      sender: 'customer',
+      sender: senderRole,
       text,
       timestamp: nowStr,
     };
 
-    setChatMessages((prev) => [...prev, newMsg]);
+    const driverRawName = activeOrder?.driver?.name || roleProfiles.driver?.name || 'তাপিওল বান্দেগী';
+    const driverCleanName = driverRawName.split('(')[0].replace(/rider/i, '').trim();
 
-    setTimeout(() => {
-      const replies = [
-        "ধন্যবাদ ভাই, আমি দেখতেছি 👍",
-        "জ্বী ভাই, ২ মিনিটের মধ্যে পৌঁছাচ্ছি 🛵",
-        "গেটে রিসিভ করুন প্লিজ!",
-      ];
-      const replyText = replies[Math.floor(Math.random() * replies.length)];
-      setChatMessages((prev) => [
+    const currentMessages = activeOrder.chatMessages || [
+      {
+        id: 'm1',
+        sender: 'driver',
+        text: `নমস্কার! আমি ${driverCleanName}, আপনার ফাস্টবাইট থার্মাল ব্যাগ নিয়ে আপনার স্পেশাল খাবারের ডেলিভারিতে প্রস্তুত আছি।`,
+        timestamp: '১২:৩২ PM',
+      },
+    ];
+
+    const updatedMessages = [...currentMessages, newMsg];
+
+    setActiveOrder((prev) => {
+      if (!prev) return null;
+      const updated = {
         ...prev,
-        {
-          id: `msg_reply_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
-          sender: 'driver',
-          text: replyText,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        },
-      ]);
-      soundManager.playChime('click');
-    }, 1800);
+        chatMessages: updatedMessages,
+      };
+      syncOrderToFirebase(updated);
+      return updated;
+    });
+
+    // Determine targets and sender name for push notifications
+    const targetRoles: UserRole[] = role === 'driver' ? ['customer', 'admin'] : ['driver', 'admin'];
+    const senderName = role === 'driver' ? 'রাইডার (Rider)' : 'গ্রাহক (Customer)';
+
+    triggerPushNotification(
+      `💬 চ্যাট মেসেজ: ${senderName}`,
+      text,
+      targetRoles,
+      'push_notification'
+    );
   };
 
   const t = TRANSLATIONS[lang];
@@ -1122,6 +1407,115 @@ export default function App() {
         </div>
       )}
 
+      {/* Network Connectivity Status Banner */}
+      {isInternetNeeded && (isOffline || simulatedOffline || simulatedSlow) ? (
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          {isOffline || simulatedOffline ? (
+            <div className="bg-red-950/90 border border-red-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white shadow-xl animate-bounce-subtle">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 flex items-center justify-center shrink-0">
+                  <WifiOff className="w-5 h-5 text-red-400 animate-pulse" />
+                </div>
+                <div className="flex-1">
+                  <div className="font-extrabold text-sm text-red-400 flex items-center gap-1.5">
+                    ইন্টারনেট সংযোগ বিচ্ছিন্ন! (No Internet Connection)
+                    {simulatedOffline && <span className="px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[9px] uppercase font-bold tracking-wide">সিমুলেশন চালু</span>}
+                  </div>
+                  <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">
+                    আপনার ডিভাইসটি অফলাইনে আছে। অনুগ্রহ করে আপনার ওয়াই-ফাই বা মোবাইল ডাটা চালু করুন। ইন্টারনেট ছাড়া রিয়েল-টাইম জিপিএস ও অর্ডারের আপডেট দেখা যাবে না।
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                {simulatedOffline ? (
+                  <button
+                    onClick={() => {
+                      soundManager.playChime('click');
+                      setSimulatedOffline(false);
+                    }}
+                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-bold rounded-lg transition-all active:scale-95 cursor-pointer border border-zinc-700 shadow-sm"
+                  >
+                    সিমুলেশন বন্ধ করুন
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      soundManager.playChime('click');
+                      setIsOffline(!navigator.onLine);
+                    }}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition-all active:scale-95 cursor-pointer shadow-md"
+                  >
+                    পুনরায় চেষ্টা করুন (Retry)
+                  </button>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-amber-950/90 border border-amber-500/40 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-white shadow-xl">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
+                  <Wifi className="w-5 h-5 text-amber-400 animate-pulse" style={{ animationDuration: '3s' }} />
+                </div>
+                <div className="flex-1">
+                  <div className="font-extrabold text-sm text-amber-400 flex items-center gap-1.5">
+                    ধীরগতির ইন্টারনেট সনাক্ত হয়েছে! (Slow Internet Speed)
+                    {simulatedSlow && <span className="px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[9px] uppercase font-bold tracking-wide">সিমুলেশন চালু</span>}
+                  </div>
+                  <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">
+                    আপনার ইন্টারনেট সংযোগ দুর্বল বা ধীরগতি সম্পন্ন। লাইভ ট্র্যাকিং ম্যাপ বা অর্ডারের স্থিতি আপডেট হতে সাধারণের চেয়ে বেশি সময় লাগতে পারে।
+                  </p>
+                </div>
+              </div>
+              {simulatedSlow && (
+                <div className="self-end sm:self-auto shrink-0">
+                  <button
+                    onClick={() => {
+                      soundManager.playChime('click');
+                      setSimulatedSlow(false);
+                    }}
+                    className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white text-xs font-bold rounded-lg transition-all active:scale-95 cursor-pointer border border-zinc-700 shadow-sm"
+                  >
+                    সিমুলেশন বন্ধ করুন
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        /* Small developer/tester connection helper when everything is online */
+        <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 pt-4 text-right">
+          <div className="inline-flex items-center gap-2 bg-zinc-900/60 border border-zinc-800/80 px-2.5 py-1 rounded-full text-[10px] text-zinc-400">
+            <span className="flex h-1.5 w-1.5 relative shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+            </span>
+            <span className="font-bold text-zinc-300">ইন্টারনেট: সক্রিয় (Online)</span>
+            <span className="text-zinc-600">|</span>
+            <span className="text-zinc-400">টেস্ট করুন:</span>
+            <button
+              onClick={() => {
+                soundManager.playChime('click');
+                setSimulatedOffline(true);
+              }}
+              className="text-red-400/80 hover:text-red-400 hover:underline cursor-pointer font-medium"
+            >
+              অফলাইন
+            </button>
+            <span className="text-zinc-700">•</span>
+            <button
+              onClick={() => {
+                soundManager.playChime('click');
+                setSimulatedSlow(true);
+              }}
+              className="text-amber-400/80 hover:text-amber-400 hover:underline cursor-pointer font-medium"
+            >
+              ধীরগতি
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Page Layout */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
         
@@ -1171,13 +1565,18 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="hidden md:flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setIsHistoryOpen(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold border border-zinc-700/60 transition-colors"
+                  id="btn-customer-my-order-list"
+                  onClick={() => {
+                    soundManager.playChime('click');
+                    setIsHistoryOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs sm:text-sm font-extrabold border border-zinc-700/60 transition-all shadow-sm active:scale-95"
                 >
-                  <History className="w-3.5 h-3.5 text-orange-400" />
-                  <span>হিস্ট্রি ({orderHistory.length})</span>
+                  <History className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-orange-400" />
+                  <span className="hidden sm:inline">আমার অর্ডার তালিকা ({orderHistory.length})</span>
+                  <span className="sm:hidden">অর্ডার তালিকা ({orderHistory.length})</span>
                 </button>
               </div>
             </div>
@@ -1281,6 +1680,10 @@ export default function App() {
                     onCompleteDelivery={handleDeliveryComplete}
                     onCancelOrder={handleCancelOrder}
                     onViewCancelMessage={() => setCancelledModalOrder(activeOrder)}
+                    onClearActiveOrder={() => {
+                      setActiveOrder(null);
+                      setCustomerTab('menu');
+                    }}
                     lang={lang}
                     currency={currency}
                   />
@@ -1302,27 +1705,16 @@ export default function App() {
                       </p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row justify-center items-center gap-3 pt-2">
+                    <div className="flex justify-center items-center pt-2">
                       <button
                         onClick={() => {
                           soundManager.playChime('click');
                           setCustomerTab('menu');
                         }}
-                        className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-extrabold text-xs sm:text-sm border border-zinc-700 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                        className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-sm shadow-xl shadow-orange-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
                       >
-                        <Utensils className="w-4 h-4" />
+                        <Utensils className="w-4 h-4 text-orange-200" />
                         <span>মেনু দেখুন (View Menu)</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          soundManager.playChime('order_placed');
-                          handleLoadDemoOrder();
-                        }}
-                        className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-extrabold text-xs sm:text-sm shadow-xl shadow-orange-600/30 flex items-center justify-center gap-2 active:scale-95 transition-all"
-                      >
-                        <Sparkles className="w-4 h-4 text-amber-200" />
-                        <span>কুইক ডেমো অর্ডার (Quick Demo Order)</span>
                       </button>
                     </div>
 
@@ -1479,12 +1871,21 @@ export default function App() {
         driver={activeOrder?.driver || DEFAULT_DRIVER}
         messages={chatMessages}
         onSendMessage={handleSendChatMessage}
+        activeRole={role}
+        customerName={activeOrder?.customerName}
+        customerPhone={activeOrder?.customerPhone}
       />
 
       <OrderHistoryModal
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
         orderHistory={orderHistory}
+        onTrackOrder={(ord) => {
+          setActiveOrder(ord);
+          setRole('customer');
+          setCustomerTab('tracking');
+          setIsHistoryOpen(false);
+        }}
         onReorder={(ord) => {
           if (ord.items.length > 0) {
             setSelectedMenuItem(ord.items[0].menuItem);
@@ -1493,6 +1894,7 @@ export default function App() {
         onViewCancelledOrder={(ord) => {
           setCancelledModalOrder(ord);
         }}
+        onClearHistory={handleClearOrderHistory}
         onSubmitRating={(orderId, foodRating, driverRating, feedback) => {
           setOrderHistory((prev) =>
             prev.map((o) => {
@@ -1517,6 +1919,11 @@ export default function App() {
           if (ord.items.length > 0) {
             setSelectedMenuItem(ord.items[0].menuItem);
           }
+        }}
+        onOk={() => {
+          setCancelledModalOrder(null);
+          setActiveOrder(null);
+          setCustomerTab('menu');
         }}
         currency={currency}
       />

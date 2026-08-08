@@ -101,7 +101,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       {
         id: 'demo_drv_101',
         role: 'driver',
-        name: 'রুপম ব্যানার্জী',
+        name: 'তাপিওল বান্দেগী',
         phone: '9831099482',
         vehiclePlate: 'WB-02-AK-4819',
         avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300',
