@@ -89,6 +89,26 @@ class SoundManager {
   constructor() {
     this.loadConfigs();
     this.initVoices();
+    this.setupAutoUnlock();
+  }
+
+  private setupAutoUnlock() {
+    if (typeof window === 'undefined') return;
+    const unlock = () => {
+      this.getContext();
+      window.removeEventListener('touchstart', unlock);
+      window.removeEventListener('click', unlock);
+      window.removeEventListener('pointerdown', unlock);
+    };
+    window.addEventListener('touchstart', unlock, { passive: true });
+    window.addEventListener('click', unlock, { passive: true });
+    window.addEventListener('pointerdown', unlock, { passive: true });
+  }
+
+  private getAudioUrl(type: string): string {
+    if (typeof window === 'undefined') return `/audio/${type}.wav`;
+    const origin = window.location.origin || '';
+    return `${origin}/audio/${type}.wav`;
   }
 
   private initVoices() {
@@ -374,8 +394,8 @@ class SoundManager {
     if (!config || config.soundType === 'silent') return;
 
     if (config.soundType === 'voice_bn') {
-      // Prioritize playing real Bengali Voice WAV/MP3 file
-      const voiceAudio = new Audio(`/audio/${type}.wav`);
+      // Prioritize playing real Bengali Voice WAV file
+      const voiceAudio = new Audio(this.getAudioUrl(type));
       voiceAudio.volume = 0.95;
       voiceAudio.play().then(() => {
         // Voice WAV file played successfully
@@ -395,7 +415,7 @@ class SoundManager {
 
     // Try playing tone WAV file or web synth tone
     try {
-      const toneAudio = new Audio(`/audio/${type}.wav`);
+      const toneAudio = new Audio(this.getAudioUrl(type));
       toneAudio.volume = 0.8;
       toneAudio.play().catch(() => {
         this.playToneDirect(config.soundType as any);
