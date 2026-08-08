@@ -1,0 +1,25 @@
+{
+  "short_name": "FastBite",
+  "name": "FastBite - Online Food Service & Delivery",
+  "description": "Premium food delivery service with live GPS tracking",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#09090b",
+  "theme_color": "#f97316",
+  "display": "standalone",
+  "orientation": "portrait",
+  "categories": ["food", "shopping", "lifestyle"]
+}

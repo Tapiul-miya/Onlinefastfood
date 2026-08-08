@@ -1,0 +1,17 @@
+{
+	"appId": "com.fastbite.app",
+	"appName": "FastBite",
+	"webDir": "dist",
+	"server": {
+		"androidScheme": "https"
+	},
+	"android": {
+		"allowMixedContent": true
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 0,
+			"launchAutoHide": true
+		}
+	}
+}
