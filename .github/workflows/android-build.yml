@@ -28,7 +28,7 @@ jobs:
       - name: Set up Java JDK 21
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: zulu
           java-version: '21'
 
       - name: Setup Gradle
@@ -42,118 +42,137 @@ jobs:
       - name: Build Web Project
         run: npm run build
 
-      - name: Add / Sync Capacitor Android
+      - name: Configure Capacitor and Android
         run: |
           npm install -D @capacitor/cli
-          npm install @capacitor/core @capacitor/android
-          if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
-            echo "Initializing Capacitor..."
-            npx cap init "FastBite Food Delivery" "com.fastbite.customer.app" --web-dir dist
-          fi
+          npm install @capacitor/core @capacitor/android @capacitor/splash-screen
+
+          # Create/replace Capacitor config with official SplashScreen settings.
+          cat > capacitor.config.ts <<'EOF'
+          import type { CapacitorConfig } from '@capacitor/cli';
+
+          const config: CapacitorConfig = {
+            appId: 'com.fastbite.customer.app',
+            appName: 'FastBite Food Delivery',
+            webDir: 'dist',
+
+            plugins: {
+              SplashScreen: {
+                launchAutoHide: true,
+                launchShowDuration: 0,
+                backgroundColor: '#09090B',
+                showSpinner: false
+              }
+            }
+          };
+
+          export default config;
+          EOF
+
+          echo "Capacitor config:"
+          cat capacitor.config.ts
+
+          # Create native Android project.
           npx cap add android
 
-          echo "Removing stale assets before sync..."
+          # Copy React build and synchronize plugins/config.
           rm -rf android/app/src/main/assets/public
           npx cap copy android
           npx cap sync android
 
-          # ========================================================
-          # REMOVE CAPACITOR SPLASH LOGO
-          # ========================================================
-
-          echo "Creating transparent splash drawable..."
-
-          mkdir -p android/app/src/main/res/drawable
-
-          printf '%s\n' \
-            '<?xml version="1.0" encoding="utf-8"?>' \
-            '<vector xmlns:android="http://schemas.android.com/apk/res/android"' \
-            '    android:width="1dp"' \
-            '    android:height="1dp"' \
-            '    android:viewportWidth="1"' \
-            '    android:viewportHeight="1">' \
-            '    <path' \
-            '        android:fillColor="@android:color/transparent"' \
-            '        android:pathData="M0,0h1v1h-1z" />' \
-            '</vector>' \
-            > android/app/src/main/res/drawable/transparent_splash.xml
-
-          echo "Replacing Capacitor/Android splash icon with transparent icon..."
-
-          while IFS= read -r SFILE; do
-            if grep -q "windowSplashScreenAnimatedIcon" "$SFILE"; then
-
-              sed -i -E                 's#<item[^>]*android:windowSplashScreenAnimatedIcon[^>]*>[^<]*</item>#<item name="android:windowSplashScreenAnimatedIcon">@drawable/transparent_splash</item>#g'                 "$SFILE"
-
-              sed -i -E                 's#<item[^>]*windowSplashScreenAnimatedIcon[^>]*>[^<]*</item>#<item name="windowSplashScreenAnimatedIcon">@drawable/transparent_splash</item>#g'                 "$SFILE"
-
-            fi
-
-            sed -i 's/#ffffff/#09090b/g' "$SFILE"
-            sed -i 's/#FFFFFF/#09090b/g' "$SFILE"
-
-          done < <(find android/ -type f \( -name "styles.xml" -o -name "themes.xml" \))
-
-          echo "Splash logo removal completed."
-
+          # --------------------------------------------------------
+          # Android Manifest
+          # --------------------------------------------------------
           MANIFEST_FILE="android/app/src/main/AndroidManifest.xml"
+
           if [ -f "$MANIFEST_FILE" ]; then
-            echo "Injecting Android permissions and Flavor Label into AndroidManifest.xml..."
             sed -i 's/android:label="@string\/app_name"/android:label="${appName}"/g' "$MANIFEST_FILE"
             sed -i 's/android:label="@string\/title_activity_main"/android:label="${appName}"/g' "$MANIFEST_FILE"
-            
-            for PERM in "INTERNET" "ACCESS_NETWORK_STATE" "ACCESS_FINE_LOCATION" "ACCESS_COARSE_LOCATION" "CALL_PHONE" "CAMERA" "VIBRATE" "POST_NOTIFICATIONS" "READ_EXTERNAL_STORAGE" "READ_MEDIA_IMAGES"; do
+
+            for PERM in INTERNET ACCESS_NETWORK_STATE ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION CALL_PHONE CAMERA VIBRATE POST_NOTIFICATIONS READ_EXTERNAL_STORAGE READ_MEDIA_IMAGES; do
               if ! grep -q "android.permission.$PERM" "$MANIFEST_FILE"; then
                 sed -i "/<application/i \    <uses-permission android:name=\"android.permission.$PERM\" \/>" "$MANIFEST_FILE"
               fi
             done
-            echo "Permissions injected successfully!"
           fi
 
-          # Clean default Capacitor launcher icons so flavor icons are strictly used
-          echo "Cleaning default Capacitor icons..."
+          # --------------------------------------------------------
+          # Flavor directories
+          # --------------------------------------------------------
+          for FLAVOR in customer kitchen rider admin; do
+            mkdir -p "android/app/src/$FLAVOR/res/values"
+          done
+
+          printf '%s\n' \
+            '<resources>' \
+            '    <string name="app_name">FB Delivery</string>' \
+            '    <string name="title_activity_main">FB Delivery</string>' \
+            '</resources>' \
+            > android/app/src/customer/res/values/strings.xml
+
+          printf '%s\n' \
+            '<resources>' \
+            '    <string name="app_name">FB Kitchen</string>' \
+            '    <string name="title_activity_main">FB Kitchen</string>' \
+            '</resources>' \
+            > android/app/src/kitchen/res/values/strings.xml
+
+          printf '%s\n' \
+            '<resources>' \
+            '    <string name="app_name">FB Rider</string>' \
+            '    <string name="title_activity_main">FB Rider</string>' \
+            '</resources>' \
+            > android/app/src/rider/res/values/strings.xml
+
+          printf '%s\n' \
+            '<resources>' \
+            '    <string name="app_name">FB Manager</string>' \
+            '    <string name="title_activity_main">FB Manager</string>' \
+            '</resources>' \
+            > android/app/src/admin/res/values/strings.xml
+
+          # --------------------------------------------------------
+          # App launcher icons
+          # --------------------------------------------------------
           rm -rf android/app/src/main/res/mipmap-*/ic_launcher*
           rm -rf android/app/src/main/res/mipmap-anydpi-v26/ic_launcher*
 
-          # Setup Product Flavors directories
-          for FLAVOR in customer kitchen rider admin; do
-            mkdir -p android/app/src/$FLAVOR/res/values
-          done
-
-          # App Names for Flavors
-          echo '<resources><string name="app_name">FB Delivery</string><string name="title_activity_main">FB Delivery</string></resources>' > android/app/src/customer/res/values/strings.xml
-          echo '<resources><string name="app_name">FB Kitchen</string><string name="title_activity_main">FB Kitchen</string></resources>' > android/app/src/kitchen/res/values/strings.xml
-          echo '<resources><string name="app_name">FB Rider</string><string name="title_activity_main">FB Rider</string></resources>' > android/app/src/rider/res/values/strings.xml
-          echo '<resources><string name="app_name">FB Manager</string><string name="title_activity_main">FB Manager</string></resources>' > android/app/src/admin/res/values/strings.xml
-
-          # Generate distinct launcher PNG icons using Node.js & Sharp from our premium SVGs
           npm install sharp
+
           node -e '
           const fs = require("fs");
           const path = require("path");
           const sharp = require("sharp");
 
           const apps = ["customer", "kitchen", "rider", "admin"];
-          const densities = { mdpi: 48, hdpi: 72, xhdpi: 96, xxhdpi: 144, xxxhdpi: 192 };
+          const densities = {
+            mdpi: 48,
+            hdpi: 72,
+            xhdpi: 96,
+            xxhdpi: 144,
+            xxxhdpi: 192
+          };
 
           async function generateIcons() {
             for (const flavor of apps) {
               const svgPath = `src/assets/icons/${flavor}.svg`;
+
               if (!fs.existsSync(svgPath)) {
                 console.error(`SVG icon not found at ${svgPath}`);
                 continue;
               }
-              const svgContent = fs.readFileSync(svgPath, "utf8");
 
-              for (const [dens, size] of Object.entries(densities)) {
-                const dir = `android/app/src/${flavor}/res/mipmap-${dens}`;
+              const buffer = Buffer.from(fs.readFileSync(svgPath, "utf8"));
+
+              for (const [density, size] of Object.entries(densities)) {
+                const dir = `android/app/src/${flavor}/res/mipmap-${density}`;
                 fs.mkdirSync(dir, { recursive: true });
 
-                const buffer = Buffer.from(svgContent);
                 await sharp(buffer)
                   .resize(size, size)
                   .png()
                   .toFile(path.join(dir, "ic_launcher.png"));
+
                 await sharp(buffer)
                   .resize(size, size)
                   .png()
@@ -162,68 +181,125 @@ jobs:
             }
           }
 
-          generateIcons().catch((err) => {
-            console.error("Error generating icons:", err);
+          generateIcons().catch(error => {
+            console.error(error);
             process.exit(1);
           });
           '
 
+          # --------------------------------------------------------
+          # Product flavors
+          # --------------------------------------------------------
           GRADLE_FILE="android/app/build.gradle"
+
           if [ -f "$GRADLE_FILE" ]; then
-            echo "Injecting Product Flavors into $GRADLE_FILE..."
             if ! grep -q "flavorDimensions" "$GRADLE_FILE"; then
               sed -i '/defaultConfig {/i \    flavorDimensions "default"' "$GRADLE_FILE"
             fi
-            
+
             if ! grep -q "productFlavors" "$GRADLE_FILE"; then
-              FLAVORS_BLOCK="    productFlavors {\n        customer {\n            dimension \"default\"\n            applicationId \"com.fastbite.customer.app\"\n            resValue \"string\", \"app_name\", \"FB Delivery\"\n            resValue \"string\", \"title_activity_main\", \"FB Delivery\"\n            manifestPlaceholders = [appName: \"FB Delivery\"]\n        }\n        kitchen {\n            dimension \"default\"\n            applicationId \"com.fastbite.kitchen.kds\"\n            resValue \"string\", \"app_name\", \"FB Kitchen\"\n            resValue \"string\", \"title_activity_main\", \"FB Kitchen\"\n            manifestPlaceholders = [appName: \"FB Kitchen\"]\n        }\n        rider {\n            dimension \"default\"\n            applicationId \"com.fastbite.rider.partner\"\n            resValue \"string\", \"app_name\", \"FB Rider\"\n            resValue \"string\", \"title_activity_main\", \"FB Rider\"\n            manifestPlaceholders = [appName: \"FB Rider\"]\n        }\n        admin {\n            dimension \"default\"\n            applicationId \"com.fastbite.admin.manager\"\n            resValue \"string\", \"app_name\", \"FB Manager\"\n            resValue \"string\", \"title_activity_main\", \"FB Manager\"\n            manifestPlaceholders = [appName: \"FB Manager\"]\n        }\n    }"
-              sed -i "/buildTypes {/i $FLAVORS_BLOCK" "$GRADLE_FILE"
+              sed -i '/buildTypes {/i\
+              productFlavors {\
+                  customer {\
+                      dimension "default"\
+                      applicationId "com.fastbite.customer.app"\
+                      resValue "string", "app_name", "FB Delivery"\
+                      resValue "string", "title_activity_main", "FB Delivery"\
+                      manifestPlaceholders = [appName: "FB Delivery"]\
+                  }\
+                  kitchen {\
+                      dimension "default"\
+                      applicationId "com.fastbite.kitchen.kds"\
+                      resValue "string", "app_name", "FB Kitchen"\
+                      resValue "string", "title_activity_main", "FB Kitchen"\
+                      manifestPlaceholders = [appName: "FB Kitchen"]\
+                  }\
+                  rider {\
+                      dimension "default"\
+                      applicationId "com.fastbite.rider.partner"\
+                      resValue "string", "app_name", "FB Rider"\
+                      resValue "string", "title_activity_main", "FB Rider"\
+                      manifestPlaceholders = [appName: "FB Rider"]\
+                  }\
+                  admin {\
+                      dimension "default"\
+                      applicationId "com.fastbite.admin.manager"\
+                      resValue "string", "app_name", "FB Manager"\
+                      resValue "string", "title_activity_main", "FB Manager"\
+                      manifestPlaceholders = [appName: "FB Manager"]\
+                  }\
+              }' "$GRADLE_FILE"
             fi
           fi
 
       - name: Build Android APK with Gradle
         run: |
           if [ ! -d "android" ]; then
-            echo "Error: android directory does not exist. Capacitor add may have failed."
+            echo "Error: android directory does not exist."
             exit 1
           fi
+
           cd android
-          
+
           if [ ! -f "settings.gradle" ]; then
-            echo "settings.gradle is missing. Creating default..."
-            printf "include ':app'\nif (file('capacitor-cordova-android-plugins').exists()) {\n    include ':capacitor-cordova-android-plugins'\n    project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')\n}\ndef capacitorSettings = file('capacitor.settings.gradle')\nif (capacitorSettings.exists()) {\n    apply from: capacitorSettings\n}\n" > settings.gradle
-          else
-            if ! grep -q "capacitor-cordova-android-plugins" settings.gradle; then
-              if [ -d "capacitor-cordova-android-plugins" ]; then
-                echo "Adding capacitor-cordova-android-plugins to settings.gradle..."
-                printf "\nif (file('capacitor-cordova-android-plugins').exists()) {\n    include ':capacitor-cordova-android-plugins'\n    project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')\n}\n" >> settings.gradle
-              fi
-            fi
+            printf '%s\n' \
+              "include ':app'" \
+              "if (file('capacitor-cordova-android-plugins').exists()) {" \
+              "    include ':capacitor-cordova-android-plugins'" \
+              "    project(':capacitor-cordova-android-plugins').projectDir = new File('./capacitor-cordova-android-plugins')" \
+              "}" \
+              "def capacitorSettings = file('capacitor.settings.gradle')" \
+              "if (capacitorSettings.exists()) {" \
+              "    apply from: capacitorSettings" \
+              "}" \
+              > settings.gradle
           fi
-          
+
           if [ ! -f "variables.gradle" ]; then
-            echo "variables.gradle is missing. Creating default..."
-            printf "ext {\n    minSdkVersion = 22\n    compileSdkVersion = 36\n    targetSdkVersion = 35\n    androidxActivityVersion = '1.8.0'\n    androidxAppCompatVersion = '1.6.1'\n    androidxCoordinatorLayoutVersion = '1.2.0'\n    androidxCoreVersion = '1.12.0'\n    androidxFragmentVersion = '1.6.2'\n    coreSplashScreenVersion = '1.0.1'\n    androidxWebkitVersion = '1.9.0'\n    junitVersion = '4.13.2'\n    androidxJunitVersion = '1.1.5'\n    androidxEspressoCoreVersion = '3.5.1'\n    cordovaAndroidVersion = '10.1.1'\n}\n" > variables.gradle
+            printf '%s\n' \
+              "ext {" \
+              "    minSdkVersion = 22" \
+              "    compileSdkVersion = 36" \
+              "    targetSdkVersion = 35" \
+              "    androidxActivityVersion = '1.8.0'" \
+              "    androidxAppCompatVersion = '1.6.1'" \
+              "    androidxCoordinatorLayoutVersion = '1.2.0'" \
+              "    androidxCoreVersion = '1.12.0'" \
+              "    androidxFragmentVersion = '1.6.2'" \
+              "    coreSplashScreenVersion = '1.0.1'" \
+              "    androidxWebkitVersion = '1.9.0'" \
+              "    junitVersion = '4.13.2'" \
+              "    androidxJunitVersion = '1.1.5'" \
+              "    androidxEspressoCoreVersion = '3.5.1'" \
+              "    cordovaAndroidVersion = '10.1.1'" \
+              "}" \
+              > variables.gradle
           fi
-          
-          echo "Updating compileSdkVersion and compileSdk to 36 in all Gradle configuration files..."
+
           find . -name "*.gradle" -exec sed -i 's/compileSdkVersion = .*/compileSdkVersion = 36/g' {} +
           find . -name "*.gradle" -exec sed -i 's/compileSdkVersion 35/compileSdkVersion 36/g' {} +
           find . -name "*.gradle" -exec sed -i 's/compileSdk 35/compileSdk 36/g' {} +
           find . -name "*.gradle" -exec sed -i 's/compileSdk = .*/compileSdk = 36/g' {} +
-          
+
           if ! grep -q "resolutionStrategy" build.gradle; then
-            echo "Adding Kotlin stdlib resolution strategy to build.gradle..."
-            printf "\nallprojects {\n    configurations.all {\n        resolutionStrategy {\n            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'\n            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'\n            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'\n        }\n    }\n}\n" >> build.gradle
+            printf '%s\n' \
+              "" \
+              "allprojects {" \
+              "    configurations.all {" \
+              "        resolutionStrategy {" \
+              "            force 'org.jetbrains.kotlin:kotlin-stdlib:1.8.22'" \
+              "            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22'" \
+              "            force 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22'" \
+              "        }" \
+              "    }" \
+              "}" \
+              >> build.gradle
           fi
-          
-          echo "Cleaning corrupted Gradle wrapper..."
+
           rm -rf gradle/wrapper/gradle-wrapper.jar
-          
-          echo "Generating Gradle wrapper..."
           gradle wrapper --gradle-version 8.13
-          
           chmod +x gradlew
+
           ./gradlew clean assembleDebug --stacktrace
 
       - name: Upload All APK Artifacts
