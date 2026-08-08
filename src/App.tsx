@@ -800,6 +800,17 @@ export default function App() {
             lastKnownStatusesRef.current[o.id] = o.status;
           });
           isInitialSnapshotRef.current = false;
+
+          // Auto-select latest active order on initial load if activeOrder is empty or finished
+          setActiveOrder((current) => {
+            if (!current || current.status === 'delivered' || current.status === 'cancelled') {
+              const pending = allOrders.find(
+                (o) => o.status !== 'delivered' && o.status !== 'cancelled'
+              );
+              if (pending) return pending;
+            }
+            return current;
+          });
           return;
         }
 
@@ -812,6 +823,16 @@ export default function App() {
             if (!oldStatus) {
               lastKnownStatusesRef.current[orderData.id] = orderData.status;
               
+              // Automatically set activeOrder if currently null or completed/cancelled
+              setActiveOrder((current) => {
+                if (!current || current.status === 'delivered' || current.status === 'cancelled') {
+                  if (orderData.status !== 'delivered' && orderData.status !== 'cancelled') {
+                    return orderData;
+                  }
+                }
+                return current;
+              });
+
               // Only notify if it's a genuinely new order placed
               if (orderData.status === 'placed') {
                 let soundToPlay: SoundEventKey = 'kitchen_new_order';
@@ -915,6 +936,18 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [activeOrder?.status, role]);
+
+  // Auto-select active pending order if activeOrder is null or finished when switching roles or receiving orders
+  useEffect(() => {
+    if (!activeOrder || activeOrder.status === 'delivered' || activeOrder.status === 'cancelled') {
+      const pendingOrder = orderHistory.find(
+        (o) => o.status !== 'delivered' && o.status !== 'cancelled'
+      );
+      if (pendingOrder) {
+        setActiveOrder(pendingOrder);
+      }
+    }
+  }, [orderHistory, role, activeOrder]);
 
   // Real-time GPS Simulation State
   const [simSpeed, setSimSpeed] = useState<number>(1);
@@ -1782,6 +1815,8 @@ export default function App() {
             {role === 'driver' && (
               <DriverView
                 order={activeOrder}
+                allOrders={orderHistory}
+                onSelectOrder={setActiveOrder}
                 onUpdateStatus={handleManualStatusUpdate}
                 onSendMessage={handleSendChatMessage}
                 onOpenChat={() => setIsChatOpen(true)}
@@ -1797,6 +1832,8 @@ export default function App() {
             {role === 'kitchen' && (
               <KitchenView
                 order={activeOrder}
+                allOrders={orderHistory}
+                onSelectOrder={setActiveOrder}
                 onUpdateStatus={handleManualStatusUpdate}
                 currentUser={currentUser}
                 onOpenAuth={() => setIsAuthOpen(true)}

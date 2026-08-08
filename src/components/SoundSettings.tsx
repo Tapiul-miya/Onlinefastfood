@@ -163,17 +163,8 @@ export const SoundSettings: React.FC = () => {
             শব্দ ও ভয়েস মেসেজ কনফিগারেশন (Sound & Voice Settings)
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            কোন ঘটনায় (অর্ডার প্লেস, কিচen রেডি, রাইডার অ্যাসাইন ইত্যাদি) কোন টোন বা কাস্টম ভয়েস মেসেজ বাজবে তা পরিবর্তন করে সেভ করুন।
+            কোন ঘটনায় (অর্ডার প্লেস, কিচেন রেডি, রাইডার অ্যাসাইন ইত্যাদি) কোন টোন বা কাস্টম ভয়েস মেসেজ বাজবে তা পরিবর্তন করে সেভ করুন।
           </p>
-          <div className="mt-2 text-[11px] bg-amber-950/40 border border-amber-500/30 text-amber-200 px-3 py-1.5 rounded-xl flex items-center justify-between gap-2">
-            <span>📱 <b>অ্যান্ড্রয়েড APK টিপস:</b> ভয়েস শুনতে অ্যাপ ওপেন করে স্ক্রিনে একবার টাচ করুন। ব্যাকগ্রাউন্ড ও নোটিফিকেশনে অটো-ভয়েস প্লে হবে।</span>
-            <button
-              onClick={() => soundManager.speak('অ্যান্ড্রয়েড ভয়েস টেস্ট সফল হয়েছে!', 'bn')}
-              className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-extrabold px-2.5 py-1 rounded-lg text-[10px] shrink-0 cursor-pointer active:scale-95"
-            >
-              🔊 ভয়েস টেস্ট
-            </button>
-          </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">

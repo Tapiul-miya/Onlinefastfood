@@ -12,6 +12,8 @@ import { fetchCurrentGpsLocation } from '../utils/geolocation';
 
 interface DriverViewProps {
   order: Order | null;
+  allOrders?: Order[];
+  onSelectOrder?: (selectedOrder: Order) => void;
   onUpdateStatus: (nextStatus: OrderStatus, logMessage: string, detail?: string) => void;
   onSendMessage: (text: string) => void;
   onOpenChat: () => void;
@@ -24,6 +26,8 @@ interface DriverViewProps {
 
 export const DriverView: React.FC<DriverViewProps> = ({
   order,
+  allOrders = [],
+  onSelectOrder,
   onUpdateStatus,
   onSendMessage,
   onOpenChat,
@@ -112,16 +116,108 @@ export const DriverView: React.FC<DriverViewProps> = ({
   const rating = currentUser?.rating || 4.95;
   const trips = currentUser?.tripsCompleted || 1840;
 
+  // Find all active/pending orders from queue
+  const pendingOrders = allOrders.filter(
+    (o) => o.status !== 'delivered' && o.status !== 'cancelled'
+  );
+
   if (!order || order.status === 'cancelled') {
     return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-white space-y-4 max-w-xl mx-auto my-12">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center text-3xl">
-          🛵
+      <div className="space-y-6">
+        {/* Rider Online Banner */}
+        <div className="bg-gradient-to-r from-zinc-900 via-amber-950/40 to-zinc-900 border border-amber-500/30 rounded-3xl p-6 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center text-2xl shrink-0 animate-pulse">
+              🛵
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+                  ডেলিভারি রাইডার ডিউটি অন (Active Duty)
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-white mt-1">{riderName}</h2>
+              <p className="text-xs text-zinc-400">{vehicleNo} • {riderPhone}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs px-3 py-1.5 rounded-xl font-bold font-mono">
+              পেন্ডিং ডেলিভারি টাস্ক: {pendingOrders.length}টি
+            </span>
+          </div>
         </div>
-        <h2 className="text-xl font-bold">{t.noOrderTitle}</h2>
-        <p className="text-xs text-zinc-400 leading-relaxed">
-          {t.noOrderDesc}
-        </p>
+
+        {/* Pending Delivery Task Queue */}
+        {pendingOrders.length > 0 ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <span>📦 নতুন ডেলিভারি টাস্ক তালিকা ({pendingOrders.length}টি পাওয়া গেছে)</span>
+              </h3>
+              <span className="text-xs text-zinc-400 animate-pulse">
+                টাস্ক সিলেক্ট করতে যেকোনো অর্ডারে ক্লিক করুন
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pendingOrders.map((pOrder) => (
+                <div
+                  key={pOrder.id}
+                  onClick={() => {
+                    soundManager.playChime('click');
+                    if (onSelectOrder) onSelectOrder(pOrder);
+                  }}
+                  className="bg-zinc-900 border border-amber-500/40 hover:border-amber-400 rounded-3xl p-5 text-white space-y-3 cursor-pointer transition-all hover:scale-[1.01] shadow-xl group"
+                >
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded-xl font-mono text-xs font-extrabold">
+                        #{pOrder.orderNumber}
+                      </span>
+                      <span className="text-xs text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                        {pOrder.status === 'placed' ? 'নতুন অর্ডার' : pOrder.status === 'preparing' ? 'কিচেনে প্রস্তুত হচ্ছে' : pOrder.status === 'ready_for_pickup' ? 'পিকআপ রেডি' : pOrder.status}
+                      </span>
+                    </div>
+                    <span className="text-xs text-zinc-400 font-mono">{pOrder.createdAt}</span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="font-extrabold text-white text-sm">{pOrder.customerName} ({pOrder.customerPhone})</div>
+                    <p className="text-zinc-300 font-medium line-clamp-2 leading-relaxed">
+                      📍 গন্তব্য: <span className="text-amber-300">{pOrder.deliveryAddress}</span>
+                    </p>
+                    <div className="text-zinc-400 text-[11px] font-mono pt-1">
+                      আইটেম: {pOrder.items.map(i => `${i.quantity}x ${i.menuItem.name}`).join(', ')}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      soundManager.playChime('click');
+                      if (onSelectOrder) onSelectOrder(pOrder);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-1.5 group-hover:bg-amber-400"
+                  >
+                    <span>🛵 ডেলিভারি টাস্ক শুরু করুন</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-white space-y-4 max-w-xl mx-auto my-8">
+            <div className="w-16 h-16 rounded-2xl bg-amber-500/20 text-amber-400 mx-auto flex items-center justify-center text-3xl animate-pulse">
+              🛵
+            </div>
+            <h2 className="text-xl font-bold">{t.noOrderTitle}</h2>
+            <p className="text-xs text-zinc-400 leading-relaxed max-w-md mx-auto">
+              কাস্টমার অ্যাপ থেকে যেকোনো খাবার প্লেস করলে আপনার স্ক্রিনে তাৎক্ষণিকভাবে ডেলিভারি টাস্ক টিকেট ওপেন হবে।
+            </p>
+          </div>
+        )}
       </div>
     );
   }

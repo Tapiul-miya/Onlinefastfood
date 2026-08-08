@@ -5,6 +5,8 @@ import { soundManager } from '../utils/audio';
 
 interface KitchenViewProps {
   order: Order | null;
+  allOrders?: Order[];
+  onSelectOrder?: (selectedOrder: Order) => void;
   onUpdateStatus: (nextStatus: OrderStatus, logMessage: string, detail?: string) => void;
   currentUser?: UserProfile | null;
   onOpenAuth?: () => void;
@@ -12,6 +14,8 @@ interface KitchenViewProps {
 
 export const KitchenView: React.FC<KitchenViewProps> = ({
   order,
+  allOrders = [],
+  onSelectOrder,
   onUpdateStatus,
   currentUser,
   onOpenAuth,
@@ -25,16 +29,102 @@ export const KitchenView: React.FC<KitchenViewProps> = ({
   const stationId = currentUser?.employeeId || 'KITCHEN-KOL-01';
   const restaurantName = currentUser?.restaurantId || 'ফাস্টবাইট এক্সপ্রেস কলকাতা (Park Street HQ)';
   const chefPhoto = currentUser?.avatar || 'https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&q=80&w=300';
+
+  const pendingTickets = allOrders.filter(
+    (o) => o.status !== 'delivered' && o.status !== 'cancelled'
+  );
+
   if (!order || order.status === 'cancelled') {
     return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-white space-y-4 max-w-xl mx-auto my-12">
-        <div className="w-16 h-16 rounded-2xl bg-rose-500/20 text-rose-400 mx-auto flex items-center justify-center text-3xl">
-          🍳
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-zinc-900 via-rose-950/40 to-zinc-900 border border-rose-500/30 rounded-3xl p-6 text-white shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center text-2xl shrink-0 animate-pulse">
+              🍳
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+                <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">
+                  Kitchen Display Screen (KDS)
+                </span>
+              </div>
+              <h2 className="text-xl font-bold text-white mt-1">{chefName}</h2>
+              <p className="text-xs text-zinc-400">{stationId} • {restaurantName}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs px-3 py-1.5 rounded-xl font-bold font-mono">
+              পেন্ডিং টিকিট: {pendingTickets.length}টি
+            </span>
+          </div>
         </div>
-        <h2 className="text-xl font-bold">Kitchen Display Screen (KDS) Idle</h2>
-        <p className="text-xs text-zinc-400">
-          No pending orders in kitchen ticket queue. Switch to Customer view to place an order!
-        </p>
+
+        {pendingTickets.length > 0 ? (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-extrabold text-rose-400 uppercase tracking-wider flex items-center gap-2">
+                <span>🔥 নতুন কিচেন টিকিট কিউ ({pendingTickets.length}টি)</span>
+              </h3>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {pendingTickets.map((pOrder) => (
+                <div
+                  key={pOrder.id}
+                  onClick={() => {
+                    soundManager.playChime('click');
+                    if (onSelectOrder) onSelectOrder(pOrder);
+                  }}
+                  className="bg-zinc-900 border border-rose-500/40 hover:border-rose-400 rounded-3xl p-5 text-white space-y-3 cursor-pointer transition-all hover:scale-[1.01] shadow-xl group"
+                >
+                  <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                    <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2.5 py-1 rounded-xl font-mono text-xs font-extrabold">
+                      Ticket #{pOrder.orderNumber}
+                    </span>
+                    <span className="text-xs text-zinc-400 font-mono">{pOrder.createdAt}</span>
+                  </div>
+
+                  <div className="space-y-1.5 text-xs">
+                    <div className="font-extrabold text-white text-sm">গ্রাহক: {pOrder.customerName}</div>
+                    <div className="text-zinc-300 font-medium">
+                      আইটেমসমূহ:
+                      <ul className="list-disc list-inside mt-1 text-zinc-300 space-y-0.5">
+                        {pOrder.items.map((item, idx) => (
+                          <li key={idx} className="font-semibold text-rose-200">
+                            {item.quantity}x {item.menuItem.name}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      soundManager.playChime('click');
+                      if (onSelectOrder) onSelectOrder(pOrder);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <span>🍳 টিকিট ওপেন করুন</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-12 text-center text-white space-y-4 max-w-xl mx-auto my-8">
+            <div className="w-16 h-16 rounded-2xl bg-rose-500/20 text-rose-400 mx-auto flex items-center justify-center text-3xl">
+              🍳
+            </div>
+            <h2 className="text-xl font-bold">Kitchen Display Screen (KDS) Idle</h2>
+            <p className="text-xs text-zinc-400">
+              No pending orders in kitchen ticket queue. Switch to Customer view to place an order!
+            </p>
+          </div>
+        )}
       </div>
     );
   }
