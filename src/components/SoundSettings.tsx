@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Play, RotateCcw, Check, MessageSquare, Music, Save } from 'lucide-react';
+import { Volume2, VolumeX, Play, RotateCcw, Check, MessageSquare, Music, Save, RefreshCw, Download, Sparkles, Trash2 } from 'lucide-react';
 import { 
   soundManager, 
   SoundEventKey, 
@@ -84,6 +84,10 @@ export const SoundSettings: React.FC = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [currentlyTesting, setCurrentlyTesting] = useState<string | null>(null);
+  const [isRegeneratingAll, setIsRegeneratingAll] = useState<boolean>(false);
+  const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null);
+  const [regenerateSuccessMsg, setRegenerateSuccessMsg] = useState<string | null>(null);
+  const [customWavCount, setCustomWavCount] = useState<number>(() => soundManager.getCustomWavCount());
 
   const handleTypeChange = (eventKey: SoundEventKey, newType: ToneType) => {
     const updated = {
@@ -136,6 +140,56 @@ export const SoundSettings: React.FC = () => {
     setTimeout(() => setSavedSuccess(false), 3000);
   };
 
+  const handleRegenerateAllWavs = async () => {
+    soundManager.playChime('click');
+    setIsRegeneratingAll(true);
+    setRegenerateSuccessMsg(null);
+    try {
+      soundManager.saveConfigs(configs);
+      await soundManager.regenerateAllWavs(configs);
+      setCustomWavCount(soundManager.getCustomWavCount());
+      setRegenerateSuccessMsg('সিলেক্ট করা সাউন্ড অপশন অনুযায়ী সবগুলি (৯টি) WAV ফাইল রি-জেনারেট করা হয়েছে!');
+      await soundManager.playWav('order_placed');
+      setTimeout(() => setRegenerateSuccessMsg(null), 5000);
+    } catch (e) {
+      console.error("WAV regeneration error:", e);
+    } finally {
+      setIsRegeneratingAll(false);
+    }
+  };
+
+  const handleRegenerateSingleWav = async (key: SoundEventKey) => {
+    soundManager.playChime('click');
+    setRegeneratingKey(key);
+    try {
+      const currentConfig = configs[key] || DEFAULT_SOUND_CONFIGS[key];
+      soundManager.saveConfigs(configs);
+      await soundManager.regenerateWav(key, currentConfig);
+      setCustomWavCount(soundManager.getCustomWavCount());
+      const selectedTypeLabel = TONE_OPTIONS.find(t => t.value === currentConfig.soundType)?.labelBn || 'সিলেক্টেড টিউন';
+      setRegenerateSuccessMsg(`'${EVENT_LABELS[key].bn.split(' ')[0]}' এর জন্য সিলেক্ট করা [${selectedTypeLabel}] WAV ফাইল জেনারেট হয়েছে!`);
+      await soundManager.playWav(key);
+      setTimeout(() => setRegenerateSuccessMsg(null), 4000);
+    } catch (e) {
+      console.error("WAV regeneration error:", e);
+    } finally {
+      setRegeneratingKey(null);
+    }
+  };
+
+  const handleDownloadWav = (key: SoundEventKey) => {
+    soundManager.playChime('click');
+    soundManager.downloadWav(key);
+  };
+
+  const handleResetCustomWavs = () => {
+    soundManager.playChime('click');
+    soundManager.resetCustomWavs();
+    setCustomWavCount(0);
+    setRegenerateSuccessMsg('অরিজিনাল ডিফোল্ট WAV সাউন্ড ফাইলে ফিরে যাওয়া হয়েছে।');
+    setTimeout(() => setRegenerateSuccessMsg(null), 4000);
+  };
+
   const testPlayVoice = (eventKey: SoundEventKey) => {
     setCurrentlyTesting(eventKey + '_voice');
     const currentConfig = configs[eventKey] || DEFAULT_SOUND_CONFIGS[eventKey];
@@ -144,14 +198,10 @@ export const SoundSettings: React.FC = () => {
     setTimeout(() => setCurrentlyTesting(null), 2500);
   };
 
-  const testPlayWavFile = (eventKey: SoundEventKey) => {
+  const testPlayWavFile = async (eventKey: SoundEventKey) => {
     setCurrentlyTesting(eventKey + '_wav');
     try {
-      const audio = new Audio(`/audio/${eventKey}.wav`);
-      audio.volume = 0.9;
-      audio.play().catch(() => {
-        soundManager.playChime(eventKey);
-      });
+      await soundManager.playWav(eventKey, 1.0);
     } catch {
       soundManager.playChime(eventKey);
     }
@@ -160,19 +210,8 @@ export const SoundSettings: React.FC = () => {
 
   const testPlayEvent = (eventKey: SoundEventKey) => {
     setCurrentlyTesting(eventKey);
-    const currentConfig = configs[eventKey];
-    if (currentConfig) {
-      if (currentConfig.soundType === 'voice_bn') {
-        soundManager.speak(currentConfig.customVoiceBn || DEFAULT_SOUND_CONFIGS[eventKey].customVoiceBn || '', 'bn');
-      } else if (currentConfig.soundType === 'voice_en') {
-        soundManager.speak(currentConfig.customVoiceEn || DEFAULT_SOUND_CONFIGS[eventKey].customVoiceEn || '', 'en');
-      } else {
-        soundManager.playChime(eventKey);
-      }
-    } else {
-      soundManager.playChime(eventKey);
-    }
-    setTimeout(() => setCurrentlyTesting(null), 2000);
+    soundManager.play(eventKey);
+    setTimeout(() => setCurrentlyTesting(null), 2500);
   };
 
   return (
@@ -184,16 +223,27 @@ export const SoundSettings: React.FC = () => {
             শব্দ ও ভয়েস মেসেজ কনফিগারেশন (Sound & Voice Settings)
           </h2>
           <p className="text-xs text-zinc-400 mt-1">
-            অ্যান্ড্রয়েড রেসপন্স ফাইল (<code className="bg-zinc-800 text-amber-300 px-1.5 py-0.5 rounded font-mono text-[11px]">res/raw/*.wav</code>) সহ টেস্ট করতে নিচের বোতামগুলি ব্যবহার করুন।
+            ওয়েব অডিও সিন্থেসাইজার এবং বাংলা টেক্সট-টু-স্পিচ (TTS) ব্যবহার করে লাইভ সাউন্ড পরীক্ষা ও WAV ফাইল রি-জেনারেট করুন।
           </p>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
           {savedSuccess && (
             <span className="text-emerald-400 text-xs font-bold flex items-center gap-1 bg-emerald-950/80 border border-emerald-500/30 px-3 py-2 rounded-xl animate-fade-in">
               <Check className="w-4 h-4 text-emerald-400" /> সেটিংস সেভ হয়েছে!
             </span>
           )}
+
+          {/* Regenerate All WAV Files Button */}
+          <button
+            onClick={handleRegenerateAllWavs}
+            disabled={isRegeneratingAll}
+            className="px-3.5 py-2.5 rounded-xl font-extrabold text-xs sm:text-sm bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white flex items-center gap-2 transition-all shadow-lg shadow-purple-900/30 active:scale-95 border border-purple-400/40 cursor-pointer disabled:opacity-50"
+            title="সমস্ত সাউন্ডের জন্য নতুন 44.1kHz 16-bit PCM WAV ফাইল রি-জেনারেট করুন"
+          >
+            <RefreshCw className={`w-4 h-4 text-purple-200 ${isRegeneratingAll ? 'animate-spin' : ''}`} />
+            <span>{isRegeneratingAll ? 'জেনারেট হচ্ছে...' : '🔄 WAV ফাইল রি-জেনারেট করুন'}</span>
+          </button>
 
           <button
             onClick={handleSaveSettings}
@@ -218,12 +268,30 @@ export const SoundSettings: React.FC = () => {
         </div>
       </div>
 
+      {regenerateSuccessMsg && (
+        <div className="bg-purple-950/90 border border-purple-500/50 p-3 rounded-2xl flex items-center justify-between text-xs font-bold text-purple-200 animate-fade-in shadow-lg">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-purple-400 animate-pulse" />
+            <span>{regenerateSuccessMsg}</span>
+          </div>
+          {customWavCount > 0 && (
+            <button
+              onClick={handleResetCustomWavs}
+              className="text-[11px] underline text-purple-300 hover:text-white flex items-center gap-1 cursor-pointer"
+            >
+              <Trash2 className="w-3 h-3" />
+              অরিজিনাল WAV এ রিসেট
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="space-y-4">
         {(Object.keys(EVENT_LABELS) as SoundEventKey[]).map((key) => {
           const info = EVENT_LABELS[key];
           const currentConfig = configs[key] || DEFAULT_SOUND_CONFIGS[key];
-          const isTesting = currentlyTesting === key;
           const isVoiceSelected = currentConfig.soundType === 'voice_bn' || currentConfig.soundType === 'voice_en';
+          const hasCustomWav = soundManager.hasCustomWav(key);
 
           return (
             <div 
@@ -232,9 +300,15 @@ export const SoundSettings: React.FC = () => {
             >
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                 <div className="space-y-0.5">
-                  <div className="font-extrabold text-sm flex items-center gap-2 text-zinc-100">
+                  <div className="font-extrabold text-sm flex items-center gap-2 text-zinc-100 flex-wrap">
                     <span className="text-base">{info.icon}</span>
                     <span>{info.bn}</span>
+                    {hasCustomWav && (
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-purple-900/80 text-purple-300 border border-purple-500/40 flex items-center gap-1">
+                        <Sparkles className="w-2.5 h-2.5 text-purple-400" />
+                        রি-জেনারেটেড WAV
+                      </span>
+                    )}
                   </div>
                   <p className="text-[11px] text-zinc-400">{info.descBn}</p>
                 </div>
@@ -257,7 +331,7 @@ export const SoundSettings: React.FC = () => {
                   {/* Test WAV File Button */}
                   <button
                     onClick={() => testPlayWavFile(key)}
-                    title="Android RAW / WAV অডিও ফাইল সাউন্ড টেস্ট করুন"
+                    title="44100Hz 16-bit Mono PCM WAV ফাইল সাউন্ড টেস্ট করুন"
                     className={`px-2.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition-all border cursor-pointer ${
                       currentlyTesting === key + '_wav'
                         ? 'bg-purple-500 text-white border-purple-400 scale-105'
@@ -265,7 +339,27 @@ export const SoundSettings: React.FC = () => {
                     }`}
                   >
                     <Music className="w-3 h-3 text-purple-400" />
-                    <span>WAV ফাইল টেস্ট</span>
+                    <span>WAV সাউন্ড টেস্ট</span>
+                  </button>
+
+                  {/* Regenerate Single WAV Button */}
+                  <button
+                    onClick={() => handleRegenerateSingleWav(key)}
+                    disabled={regeneratingKey === key}
+                    title="এই সাউন্ডটির জন্য নতুন WAV ফাইল রি-জেনারেট করুন"
+                    className="px-2.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-all border cursor-pointer bg-gradient-to-r from-purple-900/60 to-indigo-900/60 hover:from-purple-600 hover:to-indigo-600 text-purple-200 border-purple-500/40 active:scale-95 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3 h-3 text-purple-300 ${regeneratingKey === key ? 'animate-spin' : ''}`} />
+                    <span>{regeneratingKey === key ? 'জেনারেটিং...' : 'রি-জেনারেট WAV'}</span>
+                  </button>
+
+                  {/* Download WAV File Button */}
+                  <button
+                    onClick={() => handleDownloadWav(key)}
+                    title="WAV সাউন্ড ফাইল ডাউনলোড করুন"
+                    className="p-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition-all border cursor-pointer bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border-zinc-700"
+                  >
+                    <Download className="w-3.5 h-3.5" />
                   </button>
 
                   {/* Main Selected Sound Test Button */}
@@ -346,8 +440,19 @@ export const SoundSettings: React.FC = () => {
             </span>
           )}
         </p>
+
+        {customWavCount > 0 && (
+          <button
+            onClick={handleResetCustomWavs}
+            className="text-xs text-zinc-400 hover:text-rose-400 flex items-center gap-1 font-semibold transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            অরিজিনাল WAV এ রিসেট ({customWavCount})
+          </button>
+        )}
       </div>
     </div>
   );
 };
+
 

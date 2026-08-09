@@ -84,12 +84,12 @@ jobs:
           npx cap copy android
           npx cap sync android
 
-          # Copy WAV voice audio files to Android res/raw for native notification tones & audio player (only .wav to prevent duplicate R.raw resource names)
+          # Copy MP3 voice audio files to Android res/raw for native notification tones & audio player (only .mp3 to prevent duplicate R.raw resource names)
           mkdir -p android/app/src/main/res/raw
           if [ -d "public/audio" ]; then
-            cp public/audio/*.wav android/app/src/main/res/raw/ || true
-            rm -f android/app/src/main/res/raw/*.mp3 || true
-            echo "Copied audio WAV files to android/app/src/main/res/raw/"
+            cp public/audio/*.mp3 android/app/src/main/res/raw/ || true
+            rm -f android/app/src/main/res/raw/*.wav || true
+            echo "Copied audio MP3 files to android/app/src/main/res/raw/"
           fi
 
           # --------------------------------------------------------
