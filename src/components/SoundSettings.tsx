@@ -148,8 +148,9 @@ export const SoundSettings: React.FC = () => {
       soundManager.saveConfigs(configs);
       await soundManager.regenerateAllWavs(configs);
       setCustomWavCount(soundManager.getCustomWavCount());
-      setRegenerateSuccessMsg('সিলেক্ট করা সাউন্ড অপশন অনুযায়ী সবগুলি (৯টি) WAV ফাইল রি-জেনারেট করা হয়েছে!');
-      await soundManager.playWav('order_placed');
+
+      setRegenerateSuccessMsg('৯টি সাউন্ড ফাইলই অ্যান্ড্রয়েড ডিরেক্টরির res/raw ফোল্ডারে (android/app/src/main/res/raw/) প্লে করার জন্য প্রস্তুত (ব্রাউজার ডাউনলোড হবে না)!');
+      await soundManager.play('order_placed');
       setTimeout(() => setRegenerateSuccessMsg(null), 5000);
     } catch (e) {
       console.error("WAV regeneration error:", e);
@@ -166,9 +167,10 @@ export const SoundSettings: React.FC = () => {
       soundManager.saveConfigs(configs);
       await soundManager.regenerateWav(key, currentConfig);
       setCustomWavCount(soundManager.getCustomWavCount());
+
       const selectedTypeLabel = TONE_OPTIONS.find(t => t.value === currentConfig.soundType)?.labelBn || 'সিলেক্টেড টিউন';
-      setRegenerateSuccessMsg(`'${EVENT_LABELS[key].bn.split(' ')[0]}' এর জন্য সিলেক্ট করা [${selectedTypeLabel}] WAV ফাইল জেনারেট হয়েছে!`);
-      await soundManager.playWav(key);
+      setRegenerateSuccessMsg(`'${EVENT_LABELS[key].bn.split(' ')[0]}' (${key}.wav) অ্যান্ড্রয়েড res/raw ডিরেক্টরিতে (android/app/src/main/res/raw/${key}.wav) আপডেট ও প্লে হয়েছে (ব্রাউজার ডাউনলোড নয়)!`);
+      await soundManager.play(key);
       setTimeout(() => setRegenerateSuccessMsg(null), 4000);
     } catch (e) {
       console.error("WAV regeneration error:", e);

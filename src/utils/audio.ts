@@ -226,9 +226,11 @@ export async function synthesizeEventAudio(
           return audioBufferToWav(decodedBuffer);
         }
       } catch (e) {
-        console.warn("TTS fetch failed for voice WAV generation, falling back to tone synthesis:", e);
+        console.warn("TTS fetch failed for voice WAV generation:", e);
       }
     }
+    // For voice mode, if binary WAV cannot be generated, return null so we don't pollute with a tone WAV
+    return null as unknown as Blob;
   }
 
   const sampleRate = 44100;
@@ -357,21 +359,6 @@ export async function synthesizeEventAudio(
     gain.connect(offlineCtx.destination);
     osc.start(now);
     osc.stop(now + 0.7);
-  } else if (soundType === 'voice_bn' || soundType === 'voice_en') {
-    const freqs = soundType === 'voice_bn' ? [523.25, 659.25, 880.00] : [587.33, 783.99, 1046.50];
-    freqs.forEach((f, idx) => {
-      const start = now + idx * 0.12;
-      const osc = offlineCtx.createOscillator();
-      const gain = offlineCtx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(f, start);
-      gain.gain.setValueAtTime(0.28, start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.5);
-      osc.connect(gain);
-      gain.connect(offlineCtx.destination);
-      osc.start(start);
-      osc.stop(start + 0.5);
-    });
   } else if (soundType === 'silent') {
     const gain = offlineCtx.createGain();
     gain.gain.setValueAtTime(0, now);
@@ -437,60 +424,41 @@ export class SoundManager {
   public getAudioUrl(
     type: SoundEventKey
   ): string {
-    if (this.customWavUrls[type]) {
-      return this.customWavUrls[type]!;
-    }
     return `/audio/${type}.wav`;
   }
 
   private loadCustomWavs() {
-    if (typeof window === 'undefined') {
-      return;
-    }
-    try {
-      const saved = localStorage.getItem(CUSTOM_WAV_STORAGE_KEY);
-      if (saved) {
-        const parsedMap = JSON.parse(saved) as Partial<Record<SoundEventKey, string>>;
-        (Object.keys(parsedMap) as SoundEventKey[]).forEach((key) => {
-          const dataUrl = parsedMap[key];
-          if (dataUrl) {
-            const blob = base64ToBlob(dataUrl);
-            const objectUrl = URL.createObjectURL(blob);
-            this.customWavUrls[key] = objectUrl;
-            this.customWavBlobs[key] = blob;
-          }
-        });
-      }
-    } catch {
-      // Ignore storage errors
+    // Retained for compatibility
+  }
+
+  public removeCustomWav(type: SoundEventKey): void {
+    if (this.customWavUrls[type]) {
+      try {
+        URL.revokeObjectURL(this.customWavUrls[type]!);
+      } catch {}
+      delete this.customWavUrls[type];
+      delete this.customWavBlobs[type];
     }
   }
 
   public async regenerateWav(type: SoundEventKey, customConfig?: SoundEventConfig): Promise<string> {
     const config = customConfig || this.eventConfigs[type] || DEFAULT_SOUND_CONFIGS[type];
-    const blob = await synthesizeEventAudio(type, config);
-    const dataUrl = await blobToBase64(blob);
-
-    if (this.customWavUrls[type]) {
-      try {
-        URL.revokeObjectURL(this.customWavUrls[type]!);
-      } catch {}
+    try {
+      const blob = await synthesizeEventAudio(type, config);
+      if (blob) {
+        if (this.customWavUrls[type]) {
+          try { URL.revokeObjectURL(this.customWavUrls[type]!); } catch {}
+        }
+        const objectUrl = URL.createObjectURL(blob);
+        this.customWavUrls[type] = objectUrl;
+        this.customWavBlobs[type] = blob;
+        return objectUrl;
+      }
+    } catch (e) {
+      console.warn("Synthesis failed during regenerateWav, falling back to raw WAV:", e);
     }
-
-    const objectUrl = URL.createObjectURL(blob);
-    this.customWavUrls[type] = objectUrl;
-    this.customWavBlobs[type] = blob;
-
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem(CUSTOM_WAV_STORAGE_KEY);
-        const map = saved ? JSON.parse(saved) : {};
-        map[type] = dataUrl;
-        localStorage.setItem(CUSTOM_WAV_STORAGE_KEY, JSON.stringify(map));
-      } catch {}
-    }
-
-    return objectUrl;
+    this.removeCustomWav(type);
+    return `/audio/${type}.wav`;
   }
 
   public async regenerateAllWavs(customConfigs?: SoundConfigMap): Promise<Record<SoundEventKey, string>> {
@@ -533,18 +501,37 @@ export class SoundManager {
     });
     this.customWavUrls = {};
     this.customWavBlobs = {};
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem(CUSTOM_WAV_STORAGE_KEY);
-      } catch {}
-    }
   }
 
-  public downloadWav(type: SoundEventKey): void {
+  public async downloadWav(type: SoundEventKey): Promise<void> {
     if (typeof window === 'undefined') return;
-    const url = this.getAudioUrl(type);
+    try {
+      let blob: Blob | null = this.customWavBlobs[type] || null;
+
+      if (!blob) {
+        const response = await fetch(`/audio/${type}.wav`);
+        if (response.ok) {
+          blob = await response.blob();
+        }
+      }
+
+      if (blob) {
+        const objectUrl = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = objectUrl;
+        anchor.download = `${type}.wav`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        document.body.removeChild(anchor);
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
+        return;
+      }
+    } catch (e) {
+      console.warn("Direct blob download failed, using link fallback:", e);
+    }
+
     const anchor = document.createElement('a');
-    anchor.href = url;
+    anchor.href = `/audio/${type}.wav`;
     anchor.download = `${type}.wav`;
     document.body.appendChild(anchor);
     anchor.click();
@@ -888,73 +875,68 @@ export class SoundManager {
   private speakFallback(
     text: string,
     lang: 'bn' | 'en'
-  ) {
-
-    if (
-      !this.soundEnabled ||
-      typeof window === 'undefined' ||
-      !('speechSynthesis' in window)
-    ) {
-      return;
-    }
-
-
-    try {
-
-      window.speechSynthesis.cancel();
-
-
-      const utterance = new SpeechSynthesisUtterance(text);
-
-
-      utterance.lang = lang === 'bn' ? 'bn-BD' : 'en-US';
-
-      utterance.rate = 0.98;
-
-      utterance.pitch = 1.1;
-
-      utterance.volume = 1.0;
-
-
-      const voices =
-        this.cachedVoices.length > 0
-          ? this.cachedVoices
-          : window.speechSynthesis.getVoices();
-
-
-      const selectedVoice = voices.find((voice) => {
-
-        const voiceLang = voice.lang.toLowerCase();
-
-        if (lang === 'bn') {
-          return voiceLang.includes('bn');
-        }
-
-        return voiceLang.startsWith('en');
-      });
-
-
-      if (selectedVoice) {
-        utterance.voice = selectedVoice;
+  ): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (
+        !this.soundEnabled ||
+        typeof window === 'undefined' ||
+        !('speechSynthesis' in window)
+      ) {
+        resolve(false);
+        return;
       }
 
-
-      this.currentUtterance = utterance;
-
-
-      utterance.onend = () => {
-
-        if (this.currentUtterance === utterance) {
-          this.currentUtterance = null;
+      try {
+        window.speechSynthesis.cancel();
+        if (window.speechSynthesis.paused) {
+          window.speechSynthesis.resume();
         }
-      };
 
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = lang === 'bn' ? 'bn-BD' : 'en-US';
+        utterance.rate = 0.95;
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
 
-      window.speechSynthesis.speak(utterance);
+        const voices =
+          this.cachedVoices.length > 0
+            ? this.cachedVoices
+            : window.speechSynthesis.getVoices();
 
-    } catch {
-      // Ignore TTS error
-    }
+        const selectedVoice = voices.find((voice) => {
+          const voiceLang = voice.lang.toLowerCase();
+          if (lang === 'bn') {
+            return voiceLang.includes('bn') || voiceLang.includes('bengali');
+          }
+          return voiceLang.startsWith('en');
+        });
+
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+
+        this.currentUtterance = utterance;
+
+        utterance.onend = () => {
+          if (this.currentUtterance === utterance) {
+            this.currentUtterance = null;
+          }
+          resolve(true);
+        };
+
+        utterance.onerror = () => {
+          if (this.currentUtterance === utterance) {
+            this.currentUtterance = null;
+          }
+          resolve(false);
+        };
+
+        window.speechSynthesis.speak(utterance);
+        setTimeout(() => resolve(true), 2500);
+      } catch {
+        resolve(false);
+      }
+    });
   }
 
 
@@ -962,18 +944,49 @@ export class SoundManager {
   // PUBLIC SPEAK
   // ============================================================
 
-  public speak(
+  public async speak(
     text: string,
     lang: 'bn' | 'en' = 'bn'
-  ) {
-
-    if (!this.soundEnabled) {
-      return;
+  ): Promise<boolean> {
+    if (!text || !this.soundEnabled || typeof window === 'undefined') {
+      return false;
     }
 
     this.stopAll();
 
-    this.speakFallback(text, lang);
+    return new Promise<boolean>((resolve) => {
+      const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
+      const audio = new Audio(ttsUrl);
+      audio.preload = 'auto';
+      audio.volume = 1.0;
+      this.currentAudio = audio;
+
+      let finished = false;
+
+      const finish = (success: boolean) => {
+        if (finished) return;
+        finished = true;
+        if (this.currentAudio === audio) {
+          this.currentAudio = null;
+        }
+        if (success) {
+          resolve(true);
+        } else {
+          this.speakFallback(text, lang).then(resolve);
+        }
+      };
+
+      audio.addEventListener('ended', () => finish(true), { once: true });
+      audio.addEventListener('error', () => finish(false), { once: true });
+
+      audio.play()
+        .then(() => {
+          // Playback started
+        })
+        .catch(() => {
+          finish(false);
+        });
+    });
   }
 
 
@@ -1129,8 +1142,10 @@ export class SoundManager {
       }
 
       if (message) {
-        this.speakFallback(message, isBn ? 'bn' : 'en');
+        const spoke = await this.speak(message, isBn ? 'bn' : 'en');
+        if (spoke) return;
       }
+      this.playToneDirect('chime_default');
       return;
     }
 
@@ -1155,109 +1170,28 @@ export class SoundManager {
     }
 
     if (type === 'click') {
-
       const ctx = this.getContext();
-
-      if (!ctx) {
-        return;
-      }
-
+      if (!ctx) return;
       try {
-
         const now = ctx.currentTime;
-
         const oscillator = ctx.createOscillator();
-
         const gain = ctx.createGain();
-
         oscillator.type = 'sine';
-
         oscillator.frequency.setValueAtTime(600, now);
-
         oscillator.frequency.exponentialRampToValueAtTime(300, now + 0.05);
-
         gain.gain.setValueAtTime(0.08, now);
-
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-
         oscillator.connect(gain);
-
         gain.connect(ctx.destination);
-
         oscillator.start(now);
-
         oscillator.stop(now + 0.05);
-
       } catch {
         // Ignore
       }
-
       return;
     }
 
-    const config =
-      this.eventConfigs[type] ||
-      DEFAULT_SOUND_CONFIGS[type];
-
-    if (
-      !config ||
-      config.soundType === 'silent'
-    ) {
-      return;
-    }
-
-    this.stopAll();
-
-    if (config.soundType === 'voice_bn') {
-
-      const played = await this.playWav(type, 1.0);
-
-      if (played) {
-        return;
-      }
-
-      const message =
-        config.customVoiceBn ||
-        DEFAULT_SOUND_CONFIGS[type].customVoiceBn ||
-        '';
-
-      if (message) {
-        this.playToneDirect('chime_bell');
-        setTimeout(() => {
-          this.speakFallback(message, 'bn');
-        }, 250);
-      }
-
-      return;
-    }
-
-    if (config.soundType === 'voice_en') {
-
-      const played = await this.playWav(type, 1.0);
-
-      if (played) {
-        return;
-      }
-
-      const message =
-        config.customVoiceEn ||
-        DEFAULT_SOUND_CONFIGS[type].customVoiceEn ||
-        '';
-
-      if (message) {
-        this.speakFallback(message, 'en');
-      }
-
-      return;
-    }
-
-    const played = await this.playWav(type, 0.9);
-
-    if (played) {
-      return;
-    }
-
-    this.playToneDirect(config.soundType);
+    return this.play(type);
   }
 
 
