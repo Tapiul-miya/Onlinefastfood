@@ -1,5 +1,7 @@
 // audio.ts
 // WAV-only Audio Manager for React + Capacitor
+import { Capacitor } from '@capacitor/core';
+import { TextToSpeech } from '@capacitor-community/text-to-speech';
 
 export type SoundEventKey =
   | 'order_placed'
@@ -822,6 +824,12 @@ export class SoundManager {
       } catch {}
     }
 
+    if (Capacitor.isNativePlatform()) {
+      try {
+        TextToSpeech.stop().catch(() => {});
+      } catch {}
+    }
+
 
     this.currentUtterance = null;
   }
@@ -1039,6 +1047,23 @@ export class SoundManager {
     }
 
     this.stopAll();
+
+    // If running inside Capacitor, try native TextToSpeech first!
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await TextToSpeech.speak({
+          text: text,
+          lang: lang === 'bn' ? 'bn-BD' : 'en-US',
+          rate: 1.0,
+          pitch: 1.0,
+          volume: 1.0,
+          category: 'ambient',
+        });
+        return true;
+      } catch (err) {
+        console.warn("Capacitor native TextToSpeech failed, trying browser fallbacks:", err);
+      }
+    }
 
     return new Promise<boolean>((resolve) => {
       const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=${lang}&client=tw-ob`;
