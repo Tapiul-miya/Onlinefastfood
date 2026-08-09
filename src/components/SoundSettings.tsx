@@ -235,16 +235,19 @@ export const SoundSettings: React.FC = () => {
     try {
       const success = await soundManager.playWav(eventKey, 1.0);
       if (!success) {
-        setErrorMessage(`'${EVENT_LABELS[eventKey]?.bn?.split(' ')[0] || eventKey}' (${eventKey}.wav) সাউন্ডটি ব্রাউজারে বা ডিভাইসে অডিও মিউট/ব্লক থাকায় বাজানো যায়নি।`);
-        setTimeout(() => setErrorMessage(null), 6000);
+        // Automatically play chime fallback so sound is always delivered
+        await soundManager.playChime(eventKey);
+        setRegenerateSuccessMsg(`'${eventKey}.wav' ব্যাকআপ সিন্থ সাউন্ডে প্লে হয়েছে!`);
+        setTimeout(() => setRegenerateSuccessMsg(null), 3000);
       } else {
         setRegenerateSuccessMsg(`'${eventKey}.wav' সাউন্ড ফাইলটি প্লে হয়েছে!`);
         setTimeout(() => setRegenerateSuccessMsg(null), 3000);
       }
     } catch (err: any) {
       console.error("WAV test play error:", err);
-      setErrorMessage(`WAV প্লে করতে সমস্যা: ${err?.message || 'অডিও ফাইল প্লে করা সম্ভব হয়নি'}`);
-      setTimeout(() => setErrorMessage(null), 6000);
+      soundManager.playChime(eventKey);
+      setRegenerateSuccessMsg(`'${eventKey}.wav' ব্যাকআপ সাউন্ডে প্লে হয়েছে!`);
+      setTimeout(() => setRegenerateSuccessMsg(null), 3000);
     } finally {
       setTimeout(() => setCurrentlyTesting(null), 1500);
     }

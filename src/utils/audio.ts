@@ -845,44 +845,19 @@ export class SoundManager {
 
     this.stopAll();
 
-    // 1. Immediately wake up / unlock AudioContext synchronously on user gesture tick!
+    // Unlock Web Audio Context synchronously during gesture tick
     const ctx = this.getContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
 
     const url = this.getAudioUrl(type);
     const fullUrl = url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')
       ? url
       : new URL(url, window.location.href).href;
 
-    // 2. Try Web Audio API decoding first (Best for Android WebViews)
-    if (ctx) {
-      try {
-        if (ctx.state === 'suspended') {
-          await ctx.resume().catch(() => {});
-        }
-        const response = await fetch(fullUrl);
-        if (response.ok) {
-          const arrayBuffer = await response.arrayBuffer();
-          const decodedBuffer = await ctx.decodeAudioData(arrayBuffer);
-
-          const source = ctx.createBufferSource();
-          source.buffer = decodedBuffer;
-
-          const gainNode = ctx.createGain();
-          gainNode.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), ctx.currentTime);
-
-          source.connect(gainNode);
-          gainNode.connect(ctx.destination);
-
-          source.start(0);
-          return true;
-        }
-      } catch (e) {
-        console.warn("WebAudio decoding playWav failed, trying HTML5 Audio fallback:", e);
-      }
-    }
-
-    // 3. HTML5 Audio element fallback
-    return new Promise<boolean>((resolve) => {
+    // 1. Try HTML5 Audio element synchronously during user gesture stack
+    const playedViaAudio = await new Promise<boolean>((resolve) => {
       try {
         const audio = new Audio(fullUrl);
         audio.preload = 'auto';
@@ -906,20 +881,40 @@ export class SoundManager {
           resolve(false);
         };
 
-        audio.addEventListener('error', failure, { once: true });
         audio.addEventListener('ended', () => {
           if (this.currentAudio === audio) {
             this.currentAudio = null;
           }
         }, { once: true });
 
-        audio.play()
-          .then(() => success())
-          .catch(() => failure());
-      } catch {
+        // Call play() synchronously
+        const promise = audio.play();
+        if (promise !== undefined) {
+          promise
+            .then(() => success())
+            .catch((err) => {
+              console.warn("HTML5 audio.play() failed:", err);
+              failure();
+            });
+        } else {
+          success();
+        }
+      } catch (e) {
+        console.warn("Audio element error:", e);
         resolve(false);
       }
     });
+
+    if (playedViaAudio) {
+      return true;
+    }
+
+    // 2. Fallback to Web Audio API arraybuffer decoding
+    if (ctx) {
+      return this.playWavViaWebAudio(fullUrl, volume);
+    }
+
+    return false;
   }
 
   private async playWavViaWebAudio(url: string, volume = 1.0): Promise<boolean> {
