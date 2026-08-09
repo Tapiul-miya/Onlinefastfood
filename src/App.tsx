@@ -789,9 +789,11 @@ export default function App() {
   // Keep track of the last known statuses of orders
   const lastKnownStatusesRef = useRef<Record<string, OrderStatus>>({});
   const isInitialSnapshotRef = useRef(true);
+  const listenerMountTimeRef = useRef(Date.now());
 
   // Real-time Firestore sync across devices and Android app instances
   useEffect(() => {
+    listenerMountTimeRef.current = Date.now();
     try {
       const q = query(collection(db, "orders"));
       const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -844,21 +846,32 @@ export default function App() {
                 return current;
               });
 
-              // Only notify if it's a genuinely new order placed
+              // Only notify if it's a genuinely new order placed while running or created very recently
               if (orderData.status === 'placed') {
-                let soundToPlay: SoundEventKey = 'kitchen_new_order';
-                if (roleRef.current === 'driver') {
-                  soundToPlay = 'driver_new_order';
-                } else if (roleRef.current === 'customer') {
-                  soundToPlay = 'order_placed';
-                }
+                const orderCreatedAt = orderData.createdAt ? new Date(orderData.createdAt).getTime() : 0;
+                const now = Date.now();
+                // Recent if created in the last 30 seconds
+                const isRecent = orderCreatedAt > 0 && Math.abs(now - orderCreatedAt) < 30000;
+                // Realtime if the listener has been mounted for at least 6 seconds (beyond initial load transients)
+                const isRealtime = now - listenerMountTimeRef.current > 6000;
 
-                triggerPushNotificationRef.current(
-                  `🛎️ ক্লাউড অর্ডার অ্যালার্ট: #${orderData.orderNumber}`,
-                  `অন্য ডিভাইস থেকে নতুন অর্ডার এসেছে (${orderData.items.length}টি আইটেম)। গ্রাহক: ${orderData.customerName}`,
-                  ['admin', 'kitchen', 'driver', 'customer'],
-                  soundToPlay
-                );
+                if (isRecent || isRealtime) {
+                  let soundToPlay: SoundEventKey = 'kitchen_new_order';
+                  if (roleRef.current === 'driver') {
+                    soundToPlay = 'driver_new_order';
+                  } else if (roleRef.current === 'customer') {
+                    soundToPlay = 'order_placed';
+                  }
+
+                  triggerPushNotificationRef.current(
+                    `🛎️ ক্লাউড অর্ডার অ্যালার্ট: #${orderData.orderNumber}`,
+                    `অন্য ডিভাইস থেকে নতুন অর্ডার এসেছে (${orderData.items.length}টি আইটেম)। গ্রাহক: ${orderData.customerName}`,
+                    ['admin', 'kitchen', 'driver', 'customer'],
+                    soundToPlay
+                  );
+                } else {
+                  console.log(`Skipping notification/sound for historic 'placed' order #${orderData.orderNumber} on app launch.`);
+                }
               }
             }
           } else if (change.type === 'modified') {

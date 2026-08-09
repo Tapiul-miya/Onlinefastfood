@@ -102,7 +102,7 @@ export const DEFAULT_SOUND_CONFIGS: SoundConfigMap = {
   },
 
   push_notification: {
-    soundType: 'voice_bn',
+    soundType: 'chime_default',
     customVoiceBn:
       'ফাস্টবাইট এক্সপ্রেস থেকে একটি নতুন আপডেট নোটিফিকেশন এসেছে।',
     customVoiceEn:

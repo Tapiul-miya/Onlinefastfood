@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Bike, Flame, Sparkles, Utensils, HelpCircle, RefreshCw, Palette } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 
@@ -23,6 +23,11 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     'ডেলিভারি রাইডারদের অনলাইন জিপিএস কানেক্ট করা হচ্ছে...',
     'সবকিছু প্রস্তুত! স্বাগতম এবং শুভকামনা...',
   ];
+
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    onCompleteRef.current = onComplete;
+  }, [onComplete]);
 
   // Progress Bar Simulation
   useEffect(() => {
@@ -49,7 +54,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         // Trigger completion animation
         setIsExiting(true);
         setTimeout(() => {
-          onComplete();
+          onCompleteRef.current();
         }, 500); // Wait for fade-out animation to finish
       }
     };
@@ -66,7 +71,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     return () => {
       cancelAnimationFrame(animationFrameId);
     };
-  }, [onComplete]);
+  }, []);
 
   // CSS themes
   const getThemeStyles = () => {
