@@ -505,34 +505,38 @@ export class SoundManager {
 
   public async downloadWav(type: SoundEventKey): Promise<void> {
     if (typeof window === 'undefined') return;
+
     try {
       let blob: Blob | null = this.customWavBlobs[type] || null;
 
       if (!blob) {
-        const response = await fetch(`/audio/${type}.wav`);
+        const url = this.getAudioUrl(type);
+        const response = await fetch(url);
         if (response.ok) {
           blob = await response.blob();
         }
       }
 
       if (blob) {
-        const objectUrl = URL.createObjectURL(blob);
+        const base64Data = await blobToBase64(blob);
         const anchor = document.createElement('a');
-        anchor.href = objectUrl;
+        anchor.href = base64Data;
         anchor.download = `${type}.wav`;
+        anchor.target = '_blank';
         document.body.appendChild(anchor);
         anchor.click();
         document.body.removeChild(anchor);
-        setTimeout(() => URL.revokeObjectURL(objectUrl), 4000);
         return;
       }
     } catch (e) {
-      console.warn("Direct blob download failed, using link fallback:", e);
+      console.warn("Base64 WAV download failed, fallback to direct link:", e);
     }
 
+    const directUrl = this.getAudioUrl(type);
     const anchor = document.createElement('a');
-    anchor.href = `/audio/${type}.wav`;
+    anchor.href = directUrl;
     anchor.download = `${type}.wav`;
+    anchor.target = '_blank';
     document.body.appendChild(anchor);
     anchor.click();
     document.body.removeChild(anchor);
@@ -787,84 +791,96 @@ export class SoundManager {
   // PLAY WAV
   // ============================================================
 
-  public playWav(
+  public async playWav(
     type: SoundEventKey,
     volume = 1.0
   ): Promise<boolean> {
+    if (!this.soundEnabled || typeof window === 'undefined') {
+      return false;
+    }
 
-    return new Promise((resolve) => {
+    this.stopAll();
 
-      if (
-        !this.soundEnabled ||
-        typeof window === 'undefined'
-      ) {
+    const url = this.getAudioUrl(type);
+
+    // 1. Try HTML5 Audio element first
+    const playedViaAudioElement = await new Promise<boolean>((resolve) => {
+      try {
+        const audio = new Audio(url);
+        audio.preload = 'auto';
+        audio.volume = Math.max(0, Math.min(1, volume));
+        this.currentAudio = audio;
+
+        let finished = false;
+
+        const success = () => {
+          if (finished) return;
+          finished = true;
+          resolve(true);
+        };
+
+        const failure = () => {
+          if (finished) return;
+          finished = true;
+          if (this.currentAudio === audio) {
+            this.currentAudio = null;
+          }
+          resolve(false);
+        };
+
+        audio.addEventListener('error', failure, { once: true });
+        audio.addEventListener('ended', () => {
+          if (this.currentAudio === audio) {
+            this.currentAudio = null;
+          }
+        }, { once: true });
+
+        audio.play()
+          .then(() => success())
+          .catch(() => failure());
+      } catch {
         resolve(false);
-        return;
+      }
+    });
+
+    if (playedViaAudioElement) {
+      return true;
+    }
+
+    // 2. Web Audio API decoding fallback (Bulletproof for Android WebView)
+    return this.playWavViaWebAudio(url, volume);
+  }
+
+  private async playWavViaWebAudio(url: string, volume = 1.0): Promise<boolean> {
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return false;
+
+      if (ctx.state === 'suspended') {
+        await ctx.resume().catch(() => {});
       }
 
-      this.stopAll();
+      const response = await fetch(url);
+      if (!response.ok) return false;
 
-      const url = this.getAudioUrl(type);
+      const arrayBuffer = await response.arrayBuffer();
+      const decodedBuffer = await ctx.decodeAudioData(arrayBuffer);
 
-      const audio = new Audio(url);
+      const source = ctx.createBufferSource();
+      source.buffer = decodedBuffer;
 
-      audio.preload = 'auto';
+      const gainNode = ctx.createGain();
+      gainNode.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), ctx.currentTime);
 
-      audio.volume = Math.max(0, Math.min(1, volume));
+      source.connect(gainNode);
+      gainNode.connect(ctx.destination);
 
-      this.currentAudio = audio;
-
-      let finished = false;
-
-
-      const success = () => {
-
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-
-        resolve(true);
-      };
-
-
-      const failure = () => {
-
-        if (finished) {
-          return;
-        }
-
-        finished = true;
-
-        if (this.currentAudio === audio) {
-          this.currentAudio = null;
-        }
-
-        resolve(false);
-      };
-
-
-      audio.addEventListener('error', failure, { once: true });
-
-
-      audio.addEventListener('ended', () => {
-
-        if (this.currentAudio === audio) {
-          this.currentAudio = null;
-        }
-
-      });
-
-
-      audio.play()
-        .then(() => {
-          success();
-        })
-        .catch(() => {
-          failure();
-        });
-    });
+      source.start(0);
+      return true;
+    } catch (e) {
+      console.warn("playWavViaWebAudio failed:", e);
+      return false;
+    }
   }
 
 
@@ -1136,15 +1152,19 @@ export class SoundManager {
         ? (config.customVoiceBn || DEFAULT_SOUND_CONFIGS[type]?.customVoiceBn || '')
         : (config.customVoiceEn || DEFAULT_SOUND_CONFIGS[type]?.customVoiceEn || '');
 
-      if (this.hasCustomWav(type)) {
-        const played = await this.playWav(type, 1.0);
-        if (played) return;
+      // 1. First try playing pre-recorded/custom voice WAV file (Works 100% on Android assets & Web)
+      const playedWav = await this.playWav(type, 1.0);
+      if (playedWav) {
+        return;
       }
 
+      // 2. Fallback to speech TTS if WAV file is missing
       if (message) {
         const spoke = await this.speak(message, isBn ? 'bn' : 'en');
         if (spoke) return;
       }
+
+      // 3. Fallback tone
       this.playToneDirect('chime_default');
       return;
     }
