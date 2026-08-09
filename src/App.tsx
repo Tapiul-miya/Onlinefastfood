@@ -908,12 +908,14 @@ export default function App() {
               let statusSound: SoundEventKey = 'push_notification';
               if (orderData.status === 'placed') {
                 statusSound = roleRef.current === 'driver' ? 'driver_new_order' : roleRef.current === 'kitchen' ? 'kitchen_new_order' : 'order_placed';
-              } else if (orderData.status === 'confirmed' || orderData.status === 'preparing') {
-                statusSound = roleRef.current === 'kitchen' ? 'kitchen_new_order' : 'push_notification';
+              } else if (orderData.status === 'confirmed') {
+                statusSound = 'kitchen_confirmed';
+              } else if (orderData.status === 'preparing') {
+                statusSound = 'kitchen_preparing';
               } else if (orderData.status === 'ready_for_pickup') {
                 statusSound = roleRef.current === 'driver' ? 'driver_new_order' : 'kitchen_ready';
               } else if (orderData.status === 'on_the_way') {
-                statusSound = 'driver_pickup';
+                statusSound = 'driver_started_ride';
               } else if (orderData.status === 'delivered') {
                 statusSound = 'delivered';
               } else if (orderData.status === 'cancelled') {

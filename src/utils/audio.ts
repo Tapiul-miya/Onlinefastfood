@@ -7,8 +7,12 @@ export type SoundEventKey =
   | 'order_placed'
   | 'kitchen_new_order'
   | 'driver_new_order'
+  | 'kitchen_confirmed'
+  | 'kitchen_preparing'
   | 'kitchen_ready'
   | 'driver_pickup'
+  | 'driver_at_kitchen'
+  | 'driver_started_ride'
   | 'nearby'
   | 'delivered'
   | 'cancelled'
@@ -61,6 +65,22 @@ export const DEFAULT_SOUND_CONFIGS: SoundConfigMap = {
       'Attention delivery rider! A new food delivery assignment has arrived for you!'
   },
 
+  kitchen_confirmed: {
+    soundType: 'voice_bn',
+    customVoiceBn:
+      'অর্ডারটি কিচেনে সফলভাবে গ্রহণ করা হয়েছে।',
+    customVoiceEn:
+      'The order has been successfully accepted in the kitchen.'
+  },
+
+  kitchen_preparing: {
+    soundType: 'voice_bn',
+    customVoiceBn:
+      'রান্নাঘরে আপনার খাবার তৈরির কাজ শুরু হয়েছে।',
+    customVoiceEn:
+      'Preparation of your food has started in the kitchen.'
+  },
+
   kitchen_ready: {
     soundType: 'voice_bn',
     customVoiceBn:
@@ -75,6 +95,22 @@ export const DEFAULT_SOUND_CONFIGS: SoundConfigMap = {
       'ডেলিভারি রাইডার আপনার খাবার পিকআপ করেছে এবং গন্তব্যের উদ্দেশ্যে রওনা দিয়েছে!',
     customVoiceEn:
       'The delivery rider has picked up your food and is on the way!'
+  },
+
+  driver_at_kitchen: {
+    soundType: 'voice_bn',
+    customVoiceBn:
+      'ডেলিভারি রাইডার রেস্টুরেন্ট কিচেনে পৌঁছেছেন এবং আপনার খাবার সংগ্রহ করছেন।',
+    customVoiceEn:
+      'The delivery rider has arrived at the restaurant kitchen and is collecting your food.'
+  },
+
+  driver_started_ride: {
+    soundType: 'voice_bn',
+    customVoiceBn:
+      'ডেলিভারি রাইডার আপনার ঠিকানার উদ্দেশ্যে রওনা দিয়েছেন!',
+    customVoiceEn:
+      'Your delivery rider is on the way to your location!'
   },
 
   nearby: {

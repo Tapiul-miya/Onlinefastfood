@@ -23,6 +23,18 @@ const EVENT_LABELS: Record<SoundEventKey, { bn: string; en: string; icon: string
     icon: '🍳',
     descBn: 'কিচেন প্যানেল বা শেফের কাছে নতুন অর্ডার টিকিট আসার সাথে সাথে বাজবে'
   },
+  kitchen_confirmed: {
+    bn: 'কিচেন অর্ডার গ্রহণ করলে (Kitchen Ticket Accepted)',
+    en: 'When kitchen accepts/confirms an order ticket',
+    icon: '📋',
+    descBn: 'কিচেন স্টাফ অর্ডারটি রিসিভ বা অ্যাকসেপ্ট করলে বাজবে'
+  },
+  kitchen_preparing: {
+    bn: 'কিচেন রান্না শুরু করলে (Kitchen Cooking Started)',
+    en: 'When kitchen starts cooking the items',
+    icon: '🔥',
+    descBn: 'কিচেন থেকে রান্না শুরু (Start Cooking) বাটনে ক্লিক করার পর বাজবে'
+  },
   driver_new_order: {
     bn: 'রাইডারের কাছে নতুন অর্ডার অ্যাসাইনমেন্ট (Rider New Order)',
     en: 'When a new delivery order is assigned to rider',
@@ -40,6 +52,18 @@ const EVENT_LABELS: Record<SoundEventKey, { bn: string; en: string; icon: string
     en: 'When rider picks up order',
     icon: '🛵',
     descBn: 'ডেলিভারি বয় খাবার রিসিভ করে রওনা দিলে'
+  },
+  driver_at_kitchen: {
+    bn: 'রাইডার কিচেনে পৌঁছালে (Rider Arrived at Kitchen)',
+    en: 'When rider arrives at restaurant kitchen',
+    icon: '📍',
+    descBn: 'রাইডার রেস্টুরেন্ট কিচেনে এসে পৌঁছালে এবং খাবার প্যাকেজিংয়ের জন্য অপেক্ষা করলে বাজবে'
+  },
+  driver_started_ride: {
+    bn: 'রাইডার ডেলিভারি ট্রিপ শুরু করলে (Rider Started Delivery Ride)',
+    en: 'When rider starts the delivery ride',
+    icon: '🚀',
+    descBn: 'রাইডার থার্মাল ব্যাগ লক করে কাস্টমারের গন্তব্যে রওনা দেওয়ার সাথে সাথে বাজবে'
   },
   nearby: {
     bn: 'রাইডার কাছাকাছি পৌঁছালে (Rider Arriving Nearby)',

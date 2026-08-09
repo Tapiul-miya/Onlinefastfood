@@ -238,7 +238,7 @@ export const KitchenView: React.FC<KitchenViewProps> = ({
             <button
               id="btn-kds-confirm"
               onClick={() => {
-                soundManager.playChime('kitchen_ready');
+                soundManager.playChime('kitchen_confirmed');
                 onUpdateStatus('confirmed', 'Kitchen confirmed ticket', 'Order ticket assigned to Chef Marko');
               }}
               className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
@@ -253,7 +253,7 @@ export const KitchenView: React.FC<KitchenViewProps> = ({
             <button
               id="btn-kds-start-cook"
               onClick={() => {
-                soundManager.playChime('click');
+                soundManager.playChime('kitchen_preparing');
                 onUpdateStatus('preparing', 'Chef Marko started grilling Angus patties & loaded fries', 'Est 8 min cook time');
               }}
               className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${

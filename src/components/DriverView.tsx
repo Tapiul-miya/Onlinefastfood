@@ -454,7 +454,7 @@ export const DriverView: React.FC<DriverViewProps> = ({
               <button
                 id="btn-driver-at-kitchen"
                 onClick={() => {
-                  soundManager.playChime('click');
+                  soundManager.playChime('driver_at_kitchen');
                   onUpdateStatus('preparing', 'রাইডার কিচেনে পৌঁছেছে', 'খাবার প্যাক করার অপেক্ষায়');
                 }}
                 className={`p-3 rounded-xl text-xs font-bold text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
@@ -494,7 +494,7 @@ export const DriverView: React.FC<DriverViewProps> = ({
               <button
                 id="btn-driver-enroute"
                 onClick={() => {
-                  soundManager.playChime('click');
+                  soundManager.playChime('driver_started_ride');
                   onUpdateStatus('on_the_way', 'রাইডার গন্তব্যের উদ্দেশ্যে রওনা দিয়েছে', 'গতি: ৩২ কিমি/ঘণ্টা');
                 }}
                 className={`p-3 rounded-xl text-xs font-bold text-center transition-all flex flex-col items-center justify-center gap-1 active:scale-95 ${
