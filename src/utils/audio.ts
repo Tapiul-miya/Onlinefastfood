@@ -424,6 +424,9 @@ export class SoundManager {
   public getAudioUrl(
     type: SoundEventKey
   ): string {
+    if (this.customWavUrls[type]) {
+      return this.customWavUrls[type]!;
+    }
     return `/audio/${type}.wav`;
   }
 
@@ -506,40 +509,81 @@ export class SoundManager {
   public async downloadWav(type: SoundEventKey): Promise<void> {
     if (typeof window === 'undefined') return;
 
+    const url = this.getAudioUrl(type);
+    const fullUrl = url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')
+      ? url
+      : new URL(url, window.location.href).href;
+
     try {
       let blob: Blob | null = this.customWavBlobs[type] || null;
 
       if (!blob) {
-        const url = this.getAudioUrl(type);
-        const response = await fetch(url);
+        const response = await fetch(fullUrl);
         if (response.ok) {
           blob = await response.blob();
+        } else {
+          throw new Error(`সাউন্ড ফাইলটি সার্ভারে পাওয়া যায়নি (HTTP ${response.status})`);
         }
       }
 
       if (blob) {
+        const file = new File([blob], `${type}.wav`, { type: 'audio/wav' });
+
+        // 1. Web Share API (Android native share sheet allows saving directly to device storage)
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({
+              files: [file],
+              title: `${type}.wav`,
+              text: `FastBite sound file: ${type}.wav`
+            });
+            return;
+          } catch (shareErr: any) {
+            if (shareErr.name === 'AbortError') return;
+          }
+        }
+
+        // 2. ObjectURL download
+        try {
+          const objectUrl = URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = objectUrl;
+          anchor.download = `${type}.wav`;
+          document.body.appendChild(anchor);
+          anchor.click();
+          document.body.removeChild(anchor);
+          setTimeout(() => URL.revokeObjectURL(objectUrl), 8000);
+          return;
+        } catch (e) {
+          console.warn("ObjectURL download failed, fallback to base64:", e);
+        }
+
+        // 3. Base64 download
         const base64Data = await blobToBase64(blob);
         const anchor = document.createElement('a');
         anchor.href = base64Data;
         anchor.download = `${type}.wav`;
-        anchor.target = '_blank';
         document.body.appendChild(anchor);
         anchor.click();
         document.body.removeChild(anchor);
         return;
       }
-    } catch (e) {
-      console.warn("Base64 WAV download failed, fallback to direct link:", e);
+    } catch (e: any) {
+      console.warn("Blob download attempt failed, trying direct link fallback:", e);
     }
 
-    const directUrl = this.getAudioUrl(type);
-    const anchor = document.createElement('a');
-    anchor.href = directUrl;
-    anchor.download = `${type}.wav`;
-    anchor.target = '_blank';
-    document.body.appendChild(anchor);
-    anchor.click();
-    document.body.removeChild(anchor);
+    // 4. Direct window / anchor trigger
+    try {
+      const anchor = document.createElement('a');
+      anchor.href = fullUrl;
+      anchor.download = `${type}.wav`;
+      anchor.target = '_blank';
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+    } catch (err: any) {
+      throw new Error(`ডাউনলোড লিঙ্ক খুলতে ব্যর্থ: ${err?.message || 'অজানা ত্রুটি'}`);
+    }
   }
 
 
@@ -801,12 +845,46 @@ export class SoundManager {
 
     this.stopAll();
 
-    const url = this.getAudioUrl(type);
+    // 1. Immediately wake up / unlock AudioContext synchronously on user gesture tick!
+    const ctx = this.getContext();
 
-    // 1. Try HTML5 Audio element first
-    const playedViaAudioElement = await new Promise<boolean>((resolve) => {
+    const url = this.getAudioUrl(type);
+    const fullUrl = url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')
+      ? url
+      : new URL(url, window.location.href).href;
+
+    // 2. Try Web Audio API decoding first (Best for Android WebViews)
+    if (ctx) {
       try {
-        const audio = new Audio(url);
+        if (ctx.state === 'suspended') {
+          await ctx.resume().catch(() => {});
+        }
+        const response = await fetch(fullUrl);
+        if (response.ok) {
+          const arrayBuffer = await response.arrayBuffer();
+          const decodedBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+          const source = ctx.createBufferSource();
+          source.buffer = decodedBuffer;
+
+          const gainNode = ctx.createGain();
+          gainNode.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), ctx.currentTime);
+
+          source.connect(gainNode);
+          gainNode.connect(ctx.destination);
+
+          source.start(0);
+          return true;
+        }
+      } catch (e) {
+        console.warn("WebAudio decoding playWav failed, trying HTML5 Audio fallback:", e);
+      }
+    }
+
+    // 3. HTML5 Audio element fallback
+    return new Promise<boolean>((resolve) => {
+      try {
+        const audio = new Audio(fullUrl);
         audio.preload = 'auto';
         audio.volume = Math.max(0, Math.min(1, volume));
         this.currentAudio = audio;
@@ -842,13 +920,6 @@ export class SoundManager {
         resolve(false);
       }
     });
-
-    if (playedViaAudioElement) {
-      return true;
-    }
-
-    // 2. Web Audio API decoding fallback (Bulletproof for Android WebView)
-    return this.playWavViaWebAudio(url, volume);
   }
 
   private async playWavViaWebAudio(url: string, volume = 1.0): Promise<boolean> {
@@ -860,7 +931,11 @@ export class SoundManager {
         await ctx.resume().catch(() => {});
       }
 
-      const response = await fetch(url);
+      const fullUrl = url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')
+        ? url
+        : new URL(url, window.location.href).href;
+
+      const response = await fetch(fullUrl);
       if (!response.ok) return false;
 
       const arrayBuffer = await response.arrayBuffer();

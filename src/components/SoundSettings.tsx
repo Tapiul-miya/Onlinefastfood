@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Play, RotateCcw, Check, MessageSquare, Music, Save, RefreshCw, Download, Sparkles, Trash2 } from 'lucide-react';
+import { Volume2, VolumeX, Play, RotateCcw, Check, MessageSquare, Music, Save, RefreshCw, Download, Sparkles, Trash2, AlertCircle } from 'lucide-react';
 import { 
   soundManager, 
   SoundEventKey, 
@@ -88,6 +88,7 @@ export const SoundSettings: React.FC = () => {
   const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null);
   const [regenerateSuccessMsg, setRegenerateSuccessMsg] = useState<string | null>(null);
   const [customWavCount, setCustomWavCount] = useState<number>(() => soundManager.getCustomWavCount());
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleTypeChange = (eventKey: SoundEventKey, newType: ToneType) => {
     const updated = {
@@ -144,16 +145,19 @@ export const SoundSettings: React.FC = () => {
     soundManager.playChime('click');
     setIsRegeneratingAll(true);
     setRegenerateSuccessMsg(null);
+    setErrorMessage(null);
     try {
       soundManager.saveConfigs(configs);
       await soundManager.regenerateAllWavs(configs);
       setCustomWavCount(soundManager.getCustomWavCount());
 
-      setRegenerateSuccessMsg('৯টি সাউন্ড ফাইলই অ্যান্ড্রয়েড ডিরেক্টরির res/raw ফোল্ডারে (android/app/src/main/res/raw/) প্লে করার জন্য প্রস্তুত (ব্রাউজার ডাউনলোড হবে না)!');
+      setRegenerateSuccessMsg('৯টি সাউন্ড ফাইলই সফলভাবে রি-জেনারেট করা হয়েছে!');
       await soundManager.play('order_placed');
       setTimeout(() => setRegenerateSuccessMsg(null), 5000);
-    } catch (e) {
+    } catch (e: any) {
       console.error("WAV regeneration error:", e);
+      setErrorMessage(`WAV ফাইল রি-জেনারেট করতে ত্রুটি: ${e?.message || 'অজানা ত্রুটি'}`);
+      setTimeout(() => setErrorMessage(null), 6000);
     } finally {
       setIsRegeneratingAll(false);
     }
@@ -162,6 +166,8 @@ export const SoundSettings: React.FC = () => {
   const handleRegenerateSingleWav = async (key: SoundEventKey) => {
     soundManager.playChime('click');
     setRegeneratingKey(key);
+    setRegenerateSuccessMsg(null);
+    setErrorMessage(null);
     try {
       const currentConfig = configs[key] || DEFAULT_SOUND_CONFIGS[key];
       soundManager.saveConfigs(configs);
@@ -169,50 +175,90 @@ export const SoundSettings: React.FC = () => {
       setCustomWavCount(soundManager.getCustomWavCount());
 
       const selectedTypeLabel = TONE_OPTIONS.find(t => t.value === currentConfig.soundType)?.labelBn || 'সিলেক্টেড টিউন';
-      setRegenerateSuccessMsg(`'${EVENT_LABELS[key].bn.split(' ')[0]}' (${key}.wav) অ্যান্ড্রয়েড res/raw ডিরেক্টরিতে (android/app/src/main/res/raw/${key}.wav) আপডেট ও প্লে হয়েছে (ব্রাউজার ডাউনলোড নয়)!`);
+      setRegenerateSuccessMsg(`'${EVENT_LABELS[key].bn.split(' ')[0]}' (${key}.wav) এর জন্য [${selectedTypeLabel}] নতুন WAV ফাইল জেনারেট হয়েছে!`);
       await soundManager.play(key);
       setTimeout(() => setRegenerateSuccessMsg(null), 4000);
-    } catch (e) {
+    } catch (e: any) {
       console.error("WAV regeneration error:", e);
+      setErrorMessage(`WAV রি-জেনারেট ত্রুটি: ${e?.message || 'সাউন্ড তৈরি করা যায়নি'}`);
+      setTimeout(() => setErrorMessage(null), 6000);
     } finally {
       setRegeneratingKey(null);
     }
   };
 
-  const handleDownloadWav = (key: SoundEventKey) => {
+  const handleDownloadWav = async (key: SoundEventKey) => {
     soundManager.playChime('click');
-    soundManager.downloadWav(key);
+    setErrorMessage(null);
+    try {
+      await soundManager.downloadWav(key);
+      setRegenerateSuccessMsg(`'${EVENT_LABELS[key]?.bn?.split(' ')[0] || key}' (${key}.wav) ফাইল ডাউনলোড শুরু হয়েছে!`);
+      setTimeout(() => setRegenerateSuccessMsg(null), 4000);
+    } catch (err: any) {
+      console.error("Download error:", err);
+      setErrorMessage(`ডাউনলোড করা যায়নি: ${err?.message || 'ফাইলটি ডাউনলোড হতে ব্যর্থ হয়েছে'}`);
+      setTimeout(() => setErrorMessage(null), 6000);
+    }
   };
 
   const handleResetCustomWavs = () => {
     soundManager.playChime('click');
     soundManager.resetCustomWavs();
     setCustomWavCount(0);
+    setErrorMessage(null);
     setRegenerateSuccessMsg('অরিজিনাল ডিফোল্ট WAV সাউন্ড ফাইলে ফিরে যাওয়া হয়েছে।');
     setTimeout(() => setRegenerateSuccessMsg(null), 4000);
   };
 
-  const testPlayVoice = (eventKey: SoundEventKey) => {
+  const testPlayVoice = async (eventKey: SoundEventKey) => {
     setCurrentlyTesting(eventKey + '_voice');
-    const currentConfig = configs[eventKey] || DEFAULT_SOUND_CONFIGS[eventKey];
-    const textBn = currentConfig.customVoiceBn || DEFAULT_SOUND_CONFIGS[eventKey].customVoiceBn || '';
-    soundManager.speak(textBn, 'bn');
-    setTimeout(() => setCurrentlyTesting(null), 2500);
+    setErrorMessage(null);
+    try {
+      const currentConfig = configs[eventKey] || DEFAULT_SOUND_CONFIGS[eventKey];
+      const textBn = currentConfig.customVoiceBn || DEFAULT_SOUND_CONFIGS[eventKey].customVoiceBn || '';
+      const spoke = await soundManager.speak(textBn, 'bn');
+      if (!spoke) {
+        setErrorMessage(`ভয়েস স্পীচ প্লে হতে পারেনি। ডিভাইসের টেক্সট-টু-স্পীচ ইঞ্জিন রেডি নেই।`);
+        setTimeout(() => setErrorMessage(null), 6000);
+      }
+    } catch (err: any) {
+      setErrorMessage(`ভয়েস স্পীচ ত্রুটি: ${err?.message || 'প্লে করা যায়নি'}`);
+      setTimeout(() => setErrorMessage(null), 6000);
+    } finally {
+      setTimeout(() => setCurrentlyTesting(null), 2500);
+    }
   };
 
   const testPlayWavFile = async (eventKey: SoundEventKey) => {
     setCurrentlyTesting(eventKey + '_wav');
+    setErrorMessage(null);
     try {
-      await soundManager.playWav(eventKey, 1.0);
-    } catch {
-      soundManager.playChime(eventKey);
+      const success = await soundManager.playWav(eventKey, 1.0);
+      if (!success) {
+        setErrorMessage(`'${EVENT_LABELS[eventKey]?.bn?.split(' ')[0] || eventKey}' (${eventKey}.wav) সাউন্ডটি ব্রাউজারে বা ডিভাইসে অডিও মিউট/ব্লক থাকায় বাজানো যায়নি।`);
+        setTimeout(() => setErrorMessage(null), 6000);
+      } else {
+        setRegenerateSuccessMsg(`'${eventKey}.wav' সাউন্ড ফাইলটি প্লে হয়েছে!`);
+        setTimeout(() => setRegenerateSuccessMsg(null), 3000);
+      }
+    } catch (err: any) {
+      console.error("WAV test play error:", err);
+      setErrorMessage(`WAV প্লে করতে সমস্যা: ${err?.message || 'অডিও ফাইল প্লে করা সম্ভব হয়নি'}`);
+      setTimeout(() => setErrorMessage(null), 6000);
+    } finally {
+      setTimeout(() => setCurrentlyTesting(null), 1500);
     }
-    setTimeout(() => setCurrentlyTesting(null), 2000);
   };
 
-  const testPlayEvent = (eventKey: SoundEventKey) => {
+  const testPlayEvent = async (eventKey: SoundEventKey) => {
     setCurrentlyTesting(eventKey);
-    soundManager.play(eventKey);
+    setErrorMessage(null);
+    try {
+      await soundManager.play(eventKey);
+    } catch (err: any) {
+      setErrorMessage(`সাউন্ড প্লে হতে পারেনি: ${err?.message || 'অডিও সাউন্ড ইঞ্জিন ত্রুটি'}`);
+      setTimeout(() => setErrorMessage(null), 6000);
+    }
     setTimeout(() => setCurrentlyTesting(null), 2500);
   };
 
@@ -288,6 +334,21 @@ export const SoundSettings: React.FC = () => {
         </div>
       )}
 
+      {errorMessage && (
+        <div className="bg-red-950/90 border border-red-500/60 p-3.5 rounded-2xl flex items-center justify-between text-xs font-bold text-red-200 animate-fade-in shadow-xl">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-5 h-5 text-red-400 shrink-0 animate-bounce" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            onClick={() => setErrorMessage(null)}
+            className="text-[11px] underline text-red-300 hover:text-white shrink-0 cursor-pointer"
+          >
+            বন্ধ করুন
+          </button>
+        </div>
+      )}
+
       <div className="space-y-4">
         {(Object.keys(EVENT_LABELS) as SoundEventKey[]).map((key) => {
           const info = EVENT_LABELS[key];
@@ -356,17 +417,13 @@ export const SoundSettings: React.FC = () => {
                   </button>
 
                   {/* Download WAV File Button */}
-                  <a
-                    href={soundManager.getAudioUrl(key)}
-                    download={`${key}.wav`}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
                     onClick={() => handleDownloadWav(key)}
                     title="WAV সাউন্ড ফাইল ডাউনলোড করুন"
-                    className="p-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition-all border cursor-pointer bg-zinc-900 hover:bg-zinc-800 text-orange-400 hover:text-orange-300 border-zinc-700"
+                    className="p-1.5 rounded-xl font-bold text-xs flex items-center gap-1 transition-all border cursor-pointer bg-zinc-900 hover:bg-zinc-800 text-orange-400 hover:text-orange-300 border-zinc-700 active:scale-95"
                   >
                     <Download className="w-3.5 h-3.5" />
-                  </a>
+                  </button>
 
                   {/* Main Selected Sound Test Button */}
                   <button

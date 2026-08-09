@@ -84,12 +84,11 @@ jobs:
           npx cap copy android
           npx cap sync android
 
-          # Copy MP3 voice audio files to Android res/raw for native notification tones & audio player (only .mp3 to prevent duplicate R.raw resource names)
+          # Copy voice audio files to Android res/raw for native notification tones & audio player
           mkdir -p android/app/src/main/res/raw
           if [ -d "public/audio" ]; then
-            cp public/audio/*.mp3 android/app/src/main/res/raw/ || true
-            rm -f android/app/src/main/res/raw/*.wav || true
-            echo "Copied audio MP3 files to android/app/src/main/res/raw/"
+            cp public/audio/* android/app/src/main/res/raw/ || true
+            echo "Copied audio files to android/app/src/main/res/raw/"
           fi
 
           # --------------------------------------------------------
@@ -101,7 +100,7 @@ jobs:
             sed -i 's/android:label="@string\/app_name"/android:label="${appName}"/g' "$MANIFEST_FILE"
             sed -i 's/android:label="@string\/title_activity_main"/android:label="${appName}"/g' "$MANIFEST_FILE"
 
-            for PERM in INTERNET ACCESS_NETWORK_STATE ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION CALL_PHONE CAMERA VIBRATE POST_NOTIFICATIONS READ_EXTERNAL_STORAGE READ_MEDIA_IMAGES; do
+            for PERM in INTERNET ACCESS_NETWORK_STATE ACCESS_FINE_LOCATION ACCESS_COARSE_LOCATION CALL_PHONE CAMERA VIBRATE POST_NOTIFICATIONS READ_EXTERNAL_STORAGE READ_MEDIA_IMAGES WRITE_EXTERNAL_STORAGE; do
               if ! grep -q "android.permission.$PERM" "$MANIFEST_FILE"; then
                 sed -i "/<application/i \    <uses-permission android:name=\"android.permission.$PERM\" \/>" "$MANIFEST_FILE"
               fi
