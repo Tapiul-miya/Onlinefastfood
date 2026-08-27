@@ -53,8 +53,24 @@
   "theme_color": "#f97316",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "categories": ["food", "shopping", "lifestyle"],
+  "screenshots": [
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "FastBite Food Ordering Dashboard"
+    },
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "FastBite Mobile App"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Customer Menu",
