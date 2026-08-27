@@ -28,14 +28,13 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js 22
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: 'npm'
 
       - name: Install NPM Dependencies
-        run: npm ci || npm install
+        run: npm install
 
       - name: Build Customer App
         if: ${{ github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'customer' || github.event_name == 'push' }}
