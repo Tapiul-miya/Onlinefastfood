@@ -27,7 +27,7 @@ const ROLE_INFO: Record<ShareableRole, RoleConfig> = {
     defaultFirebaseDomain: 'https://fastbite-customer.web.app',
     badge: 'Customer App',
     icon: '🍔',
-    iconSrc: '/customer-icon.svg',
+    iconSrc: '/customer-512.png',
     accentColor: 'from-orange-500 to-amber-500',
   },
   kitchen: {
@@ -36,7 +36,7 @@ const ROLE_INFO: Record<ShareableRole, RoleConfig> = {
     defaultFirebaseDomain: 'https://fastbite-kitchen.web.app',
     badge: 'Kitchen Display',
     icon: '👨‍🍳',
-    iconSrc: '/kitchen-icon.svg',
+    iconSrc: '/kitchen-512.png',
     accentColor: 'from-amber-600 to-orange-600',
   },
   driver: {
@@ -45,7 +45,7 @@ const ROLE_INFO: Record<ShareableRole, RoleConfig> = {
     defaultFirebaseDomain: 'https://fastbite-rider.web.app',
     badge: 'Rider Portal',
     icon: '🛵',
-    iconSrc: '/rider-icon.svg',
+    iconSrc: '/rider-512.png',
     accentColor: 'from-emerald-600 to-teal-600',
   },
 };
