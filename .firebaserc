@@ -1,0 +1,23 @@
+{
+  "projects": {
+    "default": "gen-lang-client-0881564766"
+  },
+  "targets": {
+    "gen-lang-client-0881564766": {
+      "hosting": {
+        "customer": [
+          "fastbite-customer"
+        ],
+        "kitchen": [
+          "fastbite-kitchen"
+        ],
+        "rider": [
+          "fastbite-rider"
+        ],
+        "admin": [
+          "fastbite-admin"
+        ]
+      }
+    }
+  }
+}

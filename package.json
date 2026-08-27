@@ -6,6 +6,11 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
+    "build:customer": "VITE_APP_ROLE=customer vite build --outDir dist/customer",
+    "build:kitchen": "VITE_APP_ROLE=kitchen vite build --outDir dist/kitchen",
+    "build:rider": "VITE_APP_ROLE=driver vite build --outDir dist/rider",
+    "build:admin": "VITE_APP_ROLE=admin vite build --outDir dist/admin",
+    "build:all": "npm run build:customer && npm run build:kitchen && npm run build:rider && npm run build:admin",
     "preview": "vite preview",
     "cap:add": "cap add android",
     "cap:sync": "cap sync",

@@ -143,6 +143,54 @@ export default function App() {
     requestPermissionsOnLaunch();
 
     const detectFlavor = async () => {
+      // 1. Check build-time environment variable (for multi-site deployments)
+      const envRole = import.meta.env.VITE_APP_ROLE as string | undefined;
+      if (envRole) {
+        const normalizedRole = envRole === 'rider' ? 'driver' : (envRole as UserRole);
+        if (['customer', 'kitchen', 'driver', 'admin'].includes(normalizedRole)) {
+          setRole(normalizedRole);
+          setIsRoleLocked(true);
+          return;
+        }
+      }
+
+      // 2. Check URL search param (e.g., ?role=kitchen or ?role=rider)
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const roleParam = urlParams.get('role')?.toLowerCase();
+        if (roleParam) {
+          const normalizedParam = roleParam === 'rider' ? 'driver' : (roleParam as UserRole);
+          if (['customer', 'kitchen', 'driver', 'admin'].includes(normalizedParam)) {
+            setRole(normalizedParam);
+            setIsRoleLocked(true);
+            return;
+          }
+        }
+
+        // 3. Check hostname (e.g., fastbite-kitchen.web.app or fastbite-rider.web.app)
+        const host = window.location.hostname.toLowerCase();
+        if (host.includes('kitchen')) {
+          setRole('kitchen');
+          setIsRoleLocked(true);
+          return;
+        } else if (host.includes('rider') || host.includes('driver')) {
+          setRole('driver');
+          setIsRoleLocked(true);
+          return;
+        } else if (host.includes('admin') || host.includes('manager')) {
+          setRole('admin');
+          setIsRoleLocked(true);
+          return;
+        } else if (host.includes('customer')) {
+          setRole('customer');
+          setIsRoleLocked(true);
+          return;
+        }
+      } catch (e) {
+        console.log('URL role check bypassed');
+      }
+
+      // 4. Check Capacitor native Android App ID
       try {
         const info = await CapApp.getInfo();
         const appId = info.id;

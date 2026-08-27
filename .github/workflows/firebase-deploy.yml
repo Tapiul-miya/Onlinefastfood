@@ -1,0 +1,95 @@
+name: FastBite Firebase Multi-Site Deploy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: 'Choose deploy target (all / customer / kitchen / rider / admin)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - customer
+          - kitchen
+          - rider
+          - admin
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy Web Apps to Firebase Hosting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install NPM Dependencies
+        run: npm ci || npm install
+
+      - name: Build Customer App
+        if: ${{ github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'customer' || github.event_name == 'push' }}
+        run: npm run build:customer
+
+      - name: Build Kitchen KDS App
+        if: ${{ github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'kitchen' || github.event_name == 'push' }}
+        run: npm run build:kitchen
+
+      - name: Build Rider Partner App
+        if: ${{ github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'rider' || github.event_name == 'push' }}
+        run: npm run build:rider
+
+      - name: Build Manager Admin App
+        if: ${{ github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'admin' || github.event_name == 'push' }}
+        run: npm run build:admin
+
+      - name: Upload Static Web Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: FastBite-4-Web-Apps-Dist
+          path: dist/
+
+      - name: Deploy to Firebase Hosting
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          # Install Firebase CLI
+          npm install -g firebase-tools
+
+          TARGET="${{ github.event.inputs.deploy_target || 'all' }}"
+          echo "Starting Firebase Deploy for target: $TARGET"
+
+          # Determine authentication method (Token or Service Account)
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "$FIREBASE_SERVICE_ACCOUNT" > gcp-key.json
+            export GOOGLE_APPLICATION_CREDENTIALS="$(pwd)/gcp-key.json"
+            AUTH_FLAG=""
+          elif [ -n "$FIREBASE_TOKEN" ]; then
+            AUTH_FLAG="--token $FIREBASE_TOKEN"
+          else
+            echo "::warning ::Neither FIREBASE_TOKEN nor FIREBASE_SERVICE_ACCOUNT was found in GitHub Secrets."
+            echo "::warning ::Web sites were built and saved to Actions Artifacts. Add FIREBASE_TOKEN in Repository Secrets to enable automatic hosting deployment."
+            exit 0
+          fi
+
+          # Deploy target handling
+          if [ "$TARGET" = "all" ]; then
+            firebase deploy --only hosting $AUTH_FLAG
+          else
+            firebase deploy --only hosting:$TARGET $AUTH_FLAG
+          fi
+
+          if [ -f "gcp-key.json" ]; then
+            rm -f gcp-key.json
+          fi
