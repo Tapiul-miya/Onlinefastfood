@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Share2, X, Copy, Check, QrCode, Globe, ExternalLink } from 'lucide-react';
+import { Share2, X, Copy, Check, QrCode, Globe, ExternalLink, ShieldCheck } from 'lucide-react';
 import { UserRole } from '../types';
 
 interface ShareAppModalProps {
@@ -43,14 +43,21 @@ const ROLE_INFO: Record<ShareableRole, RoleConfig> = {
 };
 
 export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose, currentRole }) => {
-  // If currentRole is admin or anything else, fallback safely to 'customer'
-  const initialRole: ShareableRole = (currentRole === 'kitchen' || currentRole === 'driver') ? currentRole : 'customer';
+  // If current role is admin, admin can switch between all 3 operational apps (customer, kitchen, driver)
+  // For other 3 apps (customer, kitchen, driver), only customer app is shareable
+  const isAdmin = currentRole === 'admin';
+  const initialRole: ShareableRole = (isAdmin && (currentRole === 'kitchen' || currentRole === 'driver')) 
+    ? (currentRole as ShareableRole) 
+    : 'customer';
+
   const [selectedRole, setSelectedRole] = useState<ShareableRole>(initialRole);
   const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
-  const targetInfo = ROLE_INFO[selectedRole];
+  // For non-admin apps, force selected role to always be 'customer'
+  const activeRole: ShareableRole = isAdmin ? selectedRole : 'customer';
+  const targetInfo = ROLE_INFO[activeRole];
   const appUrl = targetInfo.defaultFirebaseDomain;
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(appUrl)}&margin=10`;
 
@@ -113,46 +120,58 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose, c
               <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/25 text-white inline-block mb-1">
                 {targetInfo.badge}
               </span>
-              <h3 className="text-lg font-bold leading-tight">Share App Link & QR</h3>
+              <h3 className="text-lg font-bold leading-tight">
+                {isAdmin ? 'Share Apps & QR Codes' : 'Share Customer App'}
+              </h3>
             </div>
           </div>
         </div>
 
-        {/* Tab switch for public apps (Admin excluded) */}
-        <div className="p-3 sm:p-4 bg-gray-50 border-b border-gray-200">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-[11px] font-bold text-gray-600 uppercase tracking-wide">
-              Select Application to Share:
-            </label>
-            <span className="text-[11px] font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">
-              3 Public Sites
-            </span>
-          </div>
+        {/* Tab switcher: ONLY visible for Admin */}
+        {isAdmin ? (
+          <div className="p-3 sm:p-4 bg-gray-50 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[11px] font-bold text-gray-600 uppercase tracking-wide flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-orange-500" />
+                Admin Panel: Select App to Share
+              </label>
+              <span className="text-[11px] font-medium text-orange-600 bg-orange-50 px-2 py-0.5 rounded-md">
+                3 Operational Sites
+              </span>
+            </div>
 
-          <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-200/80 rounded-xl">
-            {(['customer', 'kitchen', 'driver'] as ShareableRole[]).map((r) => {
-              const isActive = selectedRole === r;
-              const info = ROLE_INFO[r];
-              return (
-                <button
-                  key={r}
-                  onClick={() => {
-                    setSelectedRole(r);
-                    setCopied(false);
-                  }}
-                  className={`py-2 px-1 rounded-lg text-xs font-bold transition-all truncate flex flex-col items-center gap-0.5 ${
-                    isActive 
-                      ? 'bg-white text-gray-900 shadow-xs' 
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  <span className="text-sm">{info.icon}</span>
-                  <span className="capitalize">{r === 'driver' ? 'Rider' : r}</span>
-                </button>
-              );
-            })}
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-200/80 rounded-xl">
+              {(['customer', 'kitchen', 'driver'] as ShareableRole[]).map((r) => {
+                const isActive = activeRole === r;
+                const info = ROLE_INFO[r];
+                return (
+                  <button
+                    key={r}
+                    onClick={() => {
+                      setSelectedRole(r);
+                      setCopied(false);
+                    }}
+                    className={`py-2 px-1 rounded-lg text-xs font-bold transition-all truncate flex flex-col items-center gap-0.5 ${
+                      isActive 
+                        ? 'bg-white text-gray-900 shadow-xs' 
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    <span className="text-sm">{info.icon}</span>
+                    <span className="capitalize">{r === 'driver' ? 'Rider' : r}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="px-5 py-3 bg-orange-50/60 border-b border-orange-100 flex items-center gap-2 text-xs text-orange-800">
+            <span className="text-base">🍔</span>
+            <p className="font-medium">
+              Share FastBite ordering app link & QR code with customers!
+            </p>
+          </div>
+        )}
 
         {/* Body content */}
         <div className="p-5 space-y-4">

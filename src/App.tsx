@@ -41,14 +41,14 @@ import {
 
 const INITIAL_ROLE_PROFILES: Record<UserRole, UserProfile> = {
   customer: {
-    id: 'usr_customer_01',
-    name: 'অর্ণব ব্যানার্জী (Arnab Banerjee)',
-    phone: '+91 98301-88220',
+    id: '',
+    name: '',
+    phone: '',
     role: 'customer',
-    email: 'arnab.kolkata@example.com',
-    address: 'সল্টলেক সেক্টর ৫, ইলেকট্রনিক্স কমপ্লেক্স, কলকাতা (Salt Lake Sector V, Kolkata)',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300',
-    isLoggedIn: true,
+    email: '',
+    address: '',
+    avatar: '',
+    isLoggedIn: false,
   },
   driver: {
     id: 'drv_01',
@@ -251,7 +251,7 @@ export default function App() {
   const [currency, setCurrency] = useState<Currency>('INR');
 
   const [selectedAddress, setSelectedAddress] = useState<string>(
-    roleProfiles.customer?.address || INITIAL_CUSTOMER_LOCATION.address || 'সল্টলেক সেক্টর ৫, ইলেকট্রনিক্স কমপ্লেক্স, কলকাতা (Salt Lake Sector V, Kolkata)'
+    roleProfiles.customer?.address || 'সল্টলেক সেক্টর ৫, কলকাতা'
   );
 
   // Switch App Role Handler - automatically switches active profile

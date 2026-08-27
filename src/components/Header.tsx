@@ -101,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <MapPin className="w-3.5 h-3.5 text-orange-400 group-hover:scale-110 transition-transform shrink-0" />
             <span className="text-zinc-300 group-hover:text-white font-medium truncate max-w-[200px]">
-              {selectedAddress}
+              {selectedAddress || 'ঠিকানা সেট করতে লগইন করুন'}
             </span>
             <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-emerald-500/30">
               {t.header.deliveryAvg}
@@ -111,8 +111,8 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Quick Controls: Audio & Cart */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 max-w-full">
 
-            {/* Share App & QR Code Button (Hidden on Admin view for privacy) */}
-            {onOpenShare && role !== 'admin' && (
+            {/* Share App & QR Code Button */}
+            {onOpenShare && (
               <button
                 id="btn-share-app"
                 onClick={() => {
