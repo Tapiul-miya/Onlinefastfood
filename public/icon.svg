@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="50%" stop-color="#f97316"/>
+      <stop offset="100%" stop-color="#fb923c"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+  
+  <!-- Rounded App Icon Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle inner border -->
+  <rect x="8" y="8" width="496" height="496" rx="104" fill="none" stroke="#ffffff" stroke-width="4" stroke-opacity="0.3"/>
+
+  <!-- Logo Graphics: Food + Lightning Speed -->
+  <g filter="url(#shadow)" fill="#ffffff" transform="translate(64, 64) scale(0.75)">
+    <!-- Burger Top Bun -->
+    <path d="M70 190 C70 95, 170 50, 256 50 C342 50, 442 95, 442 190 L70 190 Z" fill="#ffffff"/>
+    
+    <!-- Sesame seeds -->
+    <ellipse cx="180" cy="115" rx="10" ry="6" fill="#f97316" transform="rotate(-15 180 115)"/>
+    <ellipse cx="256" cy="100" rx="10" ry="6" fill="#f97316"/>
+    <ellipse cx="332" cy="115" rx="10" ry="6" fill="#f97316" transform="rotate(15 332 115)"/>
+    <ellipse cx="220" cy="145" rx="9" ry="5" fill="#f97316" transform="rotate(10 220 145)"/>
+    <ellipse cx="295" cy="145" rx="9" ry="5" fill="#f97316" transform="rotate(-10 295 145)"/>
+
+    <!-- Cheese slice layer -->
+    <polygon points="60,215 452,215 420,250 256,280 92,250" fill="#fef08a"/>
+
+    <!-- Patty layer -->
+    <rect x="75" y="240" width="362" height="45" rx="22" fill="#78350f"/>
+
+    <!-- Fresh Lettuce wave layer -->
+    <path d="M60 215 Q100 195 140 215 T220 215 T300 215 T380 215 T452 215 L452 228 Q380 228 T300 228 T220 228 T140 228 T60 228 Z" fill="#4ade80"/>
+
+    <!-- Burger Bottom Bun -->
+    <path d="M85 305 L427 305 C427 345, 395 375, 256 375 C117 375, 85 345, 85 305 Z" fill="#ffffff"/>
+
+    <!-- Speed Lightning Bolt Badge overlay -->
+    <g transform="translate(320, 200)">
+      <circle cx="90" cy="90" r="80" fill="#fbbf24" stroke="#ffffff" stroke-width="10"/>
+      <path d="M95 30 L55 95 L90 95 L75 150 L130 80 L95 80 Z" fill="#b45309"/>
+      <path d="M100 35 L65 92 L95 92 L82 145 L125 82 L98 82 Z" fill="#ef4444"/>
+    </g>
+  </g>
+
+  <!-- Brand Typography -->
+  <text x="256" y="455" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-size="52" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="2">FASTBITE</text>
+</svg>

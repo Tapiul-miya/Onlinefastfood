@@ -1,19 +1,31 @@
 {
   "short_name": "FastBite",
-  "name": "FastBite - Online Food Service & Delivery",
-  "description": "Premium food delivery service with live GPS tracking",
+  "name": "FastBite - Ultra Fast Food Delivery",
+  "description": "Hot and fresh food delivered in 15-20 minutes with live GPS tracking",
   "icons": [
     {
-      "src": "/icon-192.png",
-      "type": "image/png",
-      "sizes": "192x192",
+      "src": "/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
-      "type": "image/png",
+      "src": "/customer-icon.svg",
+      "type": "image/svg+xml",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/kitchen-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "/rider-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "512x512",
+      "purpose": "any"
     }
   ],
   "start_url": "/",

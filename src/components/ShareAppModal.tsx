@@ -16,6 +16,8 @@ interface RoleConfig {
   defaultFirebaseDomain: string;
   badge: string;
   icon: string;
+  iconSrc: string;
+  accentColor: string;
 }
 
 const ROLE_INFO: Record<ShareableRole, RoleConfig> = {
@@ -25,6 +27,8 @@ const ROLE_INFO: Record<ShareableRole, RoleConfig> = {
     defaultFirebaseDomain: 'https://fastbite-customer.web.app',
     badge: 'Customer App',
     icon: '🍔',
+    iconSrc: '/customer-icon.svg',
+    accentColor: 'from-orange-500 to-amber-500',
   },
   kitchen: {
     title: 'Kitchen Order Display (KDS)',
@@ -32,6 +36,8 @@ const ROLE_INFO: Record<ShareableRole, RoleConfig> = {
     defaultFirebaseDomain: 'https://fastbite-kitchen.web.app',
     badge: 'Kitchen Display',
     icon: '👨‍🍳',
+    iconSrc: '/kitchen-icon.svg',
+    accentColor: 'from-amber-600 to-orange-600',
   },
   driver: {
     title: 'Rider / Delivery Partner App',
@@ -39,12 +45,12 @@ const ROLE_INFO: Record<ShareableRole, RoleConfig> = {
     defaultFirebaseDomain: 'https://fastbite-rider.web.app',
     badge: 'Rider Portal',
     icon: '🛵',
+    iconSrc: '/rider-icon.svg',
+    accentColor: 'from-emerald-600 to-teal-600',
   },
 };
 
 export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose, currentRole }) => {
-  // If current role is admin, admin can switch between all 3 operational apps (customer, kitchen, driver)
-  // For other 3 apps (customer, kitchen, driver), only customer app is shareable
   const isAdmin = currentRole === 'admin';
   const initialRole: ShareableRole = (isAdmin && (currentRole === 'kitchen' || currentRole === 'driver')) 
     ? (currentRole as ShareableRole) 
@@ -85,7 +91,7 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose, c
       try {
         await navigator.share({
           title: `FastBite - ${targetInfo.title}`,
-          text: `Open FastBite ${targetInfo.badge}: ${targetInfo.subtitle} at ${appUrl}`,
+          text: `FastBite ${targetInfo.badge}: ${targetInfo.subtitle}\nLink: ${appUrl}`,
           url: appUrl,
         });
       } catch {
@@ -103,7 +109,7 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose, c
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-5 bg-gradient-to-r from-orange-500 to-amber-500 text-white relative">
+        <div className={`p-5 bg-gradient-to-r ${targetInfo.accentColor} text-white relative transition-all duration-300`}>
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 rounded-full bg-black/20 hover:bg-black/30 text-white transition-colors"
@@ -112,9 +118,13 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose, c
             <X className="w-5 h-5" />
           </button>
           
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-white/20 backdrop-blur-xs text-white text-xl flex items-center justify-center">
-              {targetInfo.icon}
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-white p-1 shadow-md shrink-0 flex items-center justify-center border border-white/30 overflow-hidden">
+              <img
+                src={targetInfo.iconSrc}
+                alt={targetInfo.badge}
+                className="w-full h-full object-contain rounded-lg"
+              />
             </div>
             <div>
               <span className="text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/25 text-white inline-block mb-1">
@@ -151,13 +161,17 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose, c
                       setSelectedRole(r);
                       setCopied(false);
                     }}
-                    className={`py-2 px-1 rounded-lg text-xs font-bold transition-all truncate flex flex-col items-center gap-0.5 ${
+                    className={`py-2 px-1 rounded-lg text-xs font-bold transition-all truncate flex flex-col items-center gap-1 ${
                       isActive 
-                        ? 'bg-white text-gray-900 shadow-xs' 
+                        ? 'bg-white text-gray-900 shadow-xs ring-1 ring-black/5' 
                         : 'text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    <span className="text-sm">{info.icon}</span>
+                    <img 
+                      src={info.iconSrc} 
+                      alt={r} 
+                      className="w-5 h-5 rounded-md object-contain" 
+                    />
                     <span className="capitalize">{r === 'driver' ? 'Rider' : r}</span>
                   </button>
                 );
@@ -165,8 +179,8 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose, c
             </div>
           </div>
         ) : (
-          <div className="px-5 py-3 bg-orange-50/60 border-b border-orange-100 flex items-center gap-2 text-xs text-orange-800">
-            <span className="text-base">🍔</span>
+          <div className="px-5 py-3 bg-orange-50/70 border-b border-orange-100 flex items-center gap-2.5 text-xs text-orange-900">
+            <img src="/customer-icon.svg" alt="Customer App" className="w-5 h-5 rounded-md shrink-0 shadow-xs" />
             <p className="font-medium">
               Share FastBite ordering app link & QR code with customers!
             </p>
@@ -175,23 +189,38 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose, c
 
         {/* Body content */}
         <div className="p-5 space-y-4">
-          {/* QR Code Container */}
+          {/* QR Code Container with Centered App Icon */}
           <div className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-2xl border border-gray-200/80">
-            <div className="relative p-2 bg-white rounded-xl shadow-xs border border-gray-100">
+            <div className="relative p-2 bg-white rounded-xl shadow-xs border border-gray-100 flex items-center justify-center">
               <img
                 src={qrCodeUrl}
                 alt="QR Code"
                 className="w-44 h-44 object-contain rounded-lg"
                 crossOrigin="anonymous"
               />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-0 hover:opacity-100 transition-opacity bg-black/10 rounded-lg">
-                <QrCode className="w-8 h-8 text-gray-800" />
+              
+              {/* Floating App Icon Badge in center of QR */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-9 h-9 bg-white rounded-lg p-0.5 shadow-md border border-gray-200 flex items-center justify-center">
+                  <img
+                    src={targetInfo.iconSrc}
+                    alt="App Logo"
+                    className="w-full h-full object-contain rounded-md"
+                  />
+                </div>
               </div>
             </div>
-            <p className="mt-2.5 text-xs text-gray-600 font-semibold text-center flex items-center gap-1.5">
-              <QrCode className="w-3.5 h-3.5 text-orange-500" />
-              Scan with phone to open {targetInfo.badge}
-            </p>
+
+            {/* App Branding Under QR */}
+            <div className="mt-3 text-center">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white rounded-full border border-gray-200 shadow-2xs">
+                <img src={targetInfo.iconSrc} alt="" className="w-4 h-4 rounded-full" />
+                <span className="text-xs font-bold text-gray-800">{targetInfo.title}</span>
+              </div>
+              <p className="mt-1 text-[11px] text-gray-500">
+                Scan with phone camera to open or install
+              </p>
+            </div>
           </div>
 
           {/* Direct Link Input */}
