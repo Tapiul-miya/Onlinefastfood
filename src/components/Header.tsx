@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingBag, MapPin, Volume2, VolumeX, Bike, User, Flame, ShieldAlert, Utensils, Sparkles, LogIn, Bell, BellRing, Trash2, CheckCircle2, Smartphone } from 'lucide-react';
+import { ShoppingBag, MapPin, Volume2, VolumeX, Bike, User, Flame, ShieldAlert, Utensils, Sparkles, LogIn, Bell, BellRing, Trash2, CheckCircle2, Smartphone, Share2 } from 'lucide-react';
 import { UserRole, Order, UserProfile } from '../types';
 import { Language, Currency, TRANSLATIONS } from '../utils/i18n';
 import { soundManager } from '../utils/audio';
@@ -26,6 +26,7 @@ interface HeaderProps {
   onClearPush: () => void;
   onOpenApkModal?: () => void;
   onTriggerSplash?: () => void;
+  onOpenShare?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,6 +50,7 @@ export const Header: React.FC<HeaderProps> = ({
   onClearPush,
   onOpenApkModal,
   onTriggerSplash,
+  onOpenShare,
 }) => {
   const isTrackingActive = activeOrder && activeOrder.status !== 'delivered' && activeOrder.status !== 'cancelled';
   const t = TRANSLATIONS[lang];
@@ -108,6 +110,21 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Quick Controls: Audio & Cart */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 max-w-full">
+
+            {/* Share App & QR Code Button (Hidden on Admin view for privacy) */}
+            {onOpenShare && role !== 'admin' && (
+              <button
+                id="btn-share-app"
+                onClick={() => {
+                  soundManager.playChime('click');
+                  onOpenShare();
+                }}
+                title="অ্যাপ লিংক ও কিউআর কোড শেয়ার করুন (Share App Link & QR Code)"
+                className="p-1.5 sm:p-2 rounded-xl bg-orange-500/20 hover:bg-orange-500 text-orange-400 hover:text-white transition-all border border-orange-500/40 shrink-0 flex items-center justify-center group active:scale-95 shadow-xs"
+              >
+                <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover:scale-110 transition-transform" />
+              </button>
+            )}
 
             {/* Splash Preview Button */}
             {onTriggerSplash && (

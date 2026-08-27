@@ -30,6 +30,7 @@ import { AuthModal } from './components/AuthModal';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { CancelledOrderModal } from './components/CancelledOrderModal';
 import { ApkBuildModal } from './components/ApkBuildModal';
+import { ShareAppModal } from './components/ShareAppModal';
 import { SplashScreen } from './components/SplashScreen';
 import { updateAppTitleAndIcon } from './utils/apkConfigs';
 
@@ -236,6 +237,9 @@ export default function App() {
 
   // APK Builder Modal state
   const [isApkModalOpen, setIsApkModalOpen] = useState<boolean>(false);
+
+  // Share App & QR Code Modal state
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
 
   // Dynamically update page title & favicon when role changes
   useEffect(() => {
@@ -1493,6 +1497,7 @@ export default function App() {
         onClearPush={handleClearPush}
         onOpenApkModal={() => setIsApkModalOpen(true)}
         onTriggerSplash={() => setShowSplash(true)}
+        onOpenShare={() => setIsShareModalOpen(true)}
       />
 
       {/* Floating Push Notification Toast Banner */}
@@ -2043,6 +2048,12 @@ export default function App() {
         isOpen={isApkModalOpen}
         onClose={() => setIsApkModalOpen(false)}
         activeRole={role}
+      />
+
+      <ShareAppModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        currentRole={role}
       />
 
       <AuthModal
