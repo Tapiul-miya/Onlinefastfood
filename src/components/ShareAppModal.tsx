@@ -198,17 +198,6 @@ export const ShareAppModal: React.FC<ShareAppModalProps> = ({ isOpen, onClose, c
                 className="w-44 h-44 object-contain rounded-lg"
                 crossOrigin="anonymous"
               />
-              
-              {/* Floating App Icon Badge in center of QR */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-9 h-9 bg-white rounded-lg p-0.5 shadow-md border border-gray-200 flex items-center justify-center">
-                  <img
-                    src={targetInfo.iconSrc}
-                    alt="App Logo"
-                    className="w-full h-full object-contain rounded-md"
-                  />
-                </div>
-              </div>
             </div>
 
             {/* App Branding Under QR */}
